@@ -4,6 +4,7 @@ import React, { useEffect } from 'react';
 import { SoundWaveTopBar } from '@/components/SoundWaveTopBar';
 import { SoundWaveSidebar } from '@/components/SoundWaveSidebar';
 import { SoundWaveMainView } from '@/components/SoundWaveMainView';
+import { NowPlayingPanel } from '@/components/NowPlayingPanel';
 import { SoundWavePlayerBar } from '@/components/SoundWavePlayerBar';
 import { SoundWaveAudioEngine } from '@/lib/SoundWaveAudioEngine';
 import { ToastContainer } from '@/components/ToastContainer';
@@ -94,6 +95,9 @@ export default function Home() {
 
         {/* Center Main Content Panel */}
         <SoundWaveMainView />
+
+        {/* Right Now Playing Panel (Collapsible / Responsive hidden under 1200px) */}
+        <NowPlayingPanel />
       </div>
 
       {/* 3. BOTTOM PLAYER BAR (90px) */}
@@ -101,3 +105,4 @@ export default function Home() {
     </div>
   );
 }
+
