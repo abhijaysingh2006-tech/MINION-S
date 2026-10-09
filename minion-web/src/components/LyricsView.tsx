@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { useSoundWaveStore } from '@/lib/soundwaveStore';
-import { X, Mic2, Sparkles, Music } from 'lucide-react';
+import { X, Mic2, Music, Loader2 } from 'lucide-react';
 
 interface LyricLine {
   time: number;
@@ -13,10 +13,11 @@ export const LyricsView: React.FC = () => {
   const { currentTrack, currentTime, isLyricsOpen, toggleLyrics, seek } = useSoundWaveStore();
   const [lyrics, setLyrics] = useState<LyricLine[]>([]);
   const [loading, setLoading] = useState(false);
-  const activeLineRef = useRef<HTMLButtonElement | null>(null);
-  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const lineRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const lastActiveIndex = useRef<number>(-1);
 
-  // Fetch lyrics whenever the playing song changes
+  // Fetch lyrics on track change
   useEffect(() => {
     if (!currentTrack) {
       setLyrics([]);
@@ -33,6 +34,8 @@ export const LyricsView: React.FC = () => {
       .then((data) => {
         if (data.lyrics && Array.isArray(data.lyrics)) {
           setLyrics(data.lyrics);
+          lineRefs.current = new Array(data.lyrics.length).fill(null);
+          lastActiveIndex.current = -1;
         }
       })
       .catch((err) => {
@@ -43,36 +46,60 @@ export const LyricsView: React.FC = () => {
       });
   }, [currentTrack?.id]);
 
-  // Auto-scroll active lyric line into center view
-  useEffect(() => {
-    if (activeLineRef.current && scrollContainerRef.current) {
-      activeLineRef.current.scrollIntoView({
-        behavior: 'smooth',
-        block: 'center',
-      });
+  // Compute active lyric index efficiently with binary search / range check
+  const activeIndex = useMemo(() => {
+    if (lyrics.length === 0) return -1;
+    let index = -1;
+    for (let i = 0; i < lyrics.length; i++) {
+      if (currentTime >= lyrics[i].time) {
+        index = i;
+      } else {
+        break;
+      }
     }
-  }, [currentTime]);
+    return index;
+  }, [currentTime, lyrics]);
+
+  // Smooth GPU-accelerated scroll when active line changes
+  useEffect(() => {
+    if (activeIndex >= 0 && activeIndex !== lastActiveIndex.current) {
+      lastActiveIndex.current = activeIndex;
+      const el = lineRefs.current[activeIndex];
+      const container = containerRef.current;
+      if (el && container) {
+        const containerHeight = container.clientHeight;
+        const elTop = el.offsetTop;
+        const elHeight = el.clientHeight;
+        const targetScroll = elTop - containerHeight / 2 + elHeight / 2;
+
+        container.scrollTo({
+          top: targetScroll,
+          behavior: 'smooth',
+        });
+      }
+    }
+  }, [activeIndex]);
 
   if (!isLyricsOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-[#121b14]/95 backdrop-blur-2xl flex flex-col text-white select-none animate-in fade-in duration-300">
+    <div className="fixed inset-0 z-50 bg-[#0F1410]/95 backdrop-blur-2xl flex flex-col text-white select-none animate-in fade-in duration-200">
       {/* Top Header */}
-      <header className="flex items-center justify-between px-8 py-6 border-b border-white/10">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-[#1ed760]/20 flex items-center justify-center text-[#1ed760] shadow-lg">
-            <Mic2 className="w-6 h-6" />
+      <header className="flex items-center justify-between px-6 md:px-10 py-5 border-b border-white/10 shrink-0">
+        <div className="flex items-center gap-3.5">
+          <div className="w-11 h-11 rounded-xl bg-[#1ed760]/20 flex items-center justify-center text-[#1ed760] shadow-md">
+            <Mic2 className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-xl md:text-2xl font-black text-white flex items-center gap-2">
+            <h2 className="text-lg md:text-xl font-black text-white flex items-center gap-2">
               Lyrics
               <span className="text-[10px] uppercase font-extrabold px-2.5 py-0.5 rounded-full bg-[#1ed760] text-black">
-                Live Synced
+                Multilingual Synced
               </span>
             </h2>
             {currentTrack && (
-              <p className="text-xs md:text-sm text-[#94A3B8] truncate mt-0.5">
-                {currentTrack.title} — <span className="text-white font-medium">{currentTrack.artist}</span>
+              <p className="text-xs text-[#94A3B8] truncate mt-0.5 max-w-sm md:max-w-md">
+                {currentTrack.title} — <span className="text-white font-semibold">{currentTrack.artist}</span>
               </p>
             )}
           </div>
@@ -80,42 +107,42 @@ export const LyricsView: React.FC = () => {
 
         <button
           onClick={toggleLyrics}
-          className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-all hover:scale-105"
+          className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-transform hover:scale-105"
           title="Close lyrics"
         >
           <X className="w-5 h-5" />
         </button>
       </header>
 
-      {/* Lyrics Stream Body */}
+      {/* Lyrics Scrollable Body */}
       <div
-        ref={scrollContainerRef}
-        className="flex-1 overflow-y-auto px-6 md:px-16 py-20 flex flex-col items-center space-y-8 max-w-4xl mx-auto w-full text-center"
+        ref={containerRef}
+        className="flex-1 overflow-y-auto px-6 md:px-16 py-32 flex flex-col items-center space-y-6 max-w-4xl mx-auto w-full text-center scroll-smooth"
+        style={{ willChange: 'transform, scroll-position' }}
       >
         {loading && (
           <div className="my-auto flex flex-col items-center gap-3 text-[#94A3B8]">
-            <div className="w-8 h-8 border-2 border-[#1ed760] border-t-transparent rounded-full animate-spin" />
-            <p className="text-sm font-semibold">Synchronizing lyrics...</p>
+            <Loader2 className="w-8 h-8 animate-spin text-[#1ed760]" />
+            <p className="text-sm font-semibold">Loading song lyrics...</p>
           </div>
         )}
 
         {!loading && lyrics.length > 0 && (
           lyrics.map((line, idx) => {
-            const nextTime = lyrics[idx + 1]?.time ?? Infinity;
-            const isActive = currentTime >= line.time && currentTime < nextTime;
-            const isPassed = currentTime >= nextTime;
+            const isActive = activeIndex === idx;
+            const isPassed = activeIndex > idx;
 
             return (
               <button
                 key={idx}
-                ref={isActive ? activeLineRef : null}
+                ref={(el) => { lineRefs.current[idx] = el; }}
                 onClick={() => seek(line.time)}
-                className={`text-2xl md:text-4xl font-extrabold leading-relaxed transition-all duration-300 text-center w-full px-4 py-2 rounded-2xl ${
+                className={`w-full py-2.5 px-6 rounded-2xl text-left text-center transition-all duration-200 cursor-pointer ${
                   isActive
-                    ? 'text-white scale-105 drop-shadow-[0_0_25px_rgba(30,215,96,0.6)] font-black'
+                    ? 'text-white text-3xl md:text-4xl font-black scale-105 drop-shadow-[0_0_20px_rgba(255,255,255,0.7)]'
                     : isPassed
-                    ? 'text-white/40 hover:text-white/80'
-                    : 'text-white/20 hover:text-white/60'
+                    ? 'text-white/45 text-2xl md:text-3xl font-bold hover:text-white/80'
+                    : 'text-white/20 text-2xl md:text-3xl font-bold hover:text-white/60'
                 }`}
               >
                 {line.text}
@@ -127,8 +154,8 @@ export const LyricsView: React.FC = () => {
         {!loading && lyrics.length === 0 && (
           <div className="my-auto flex flex-col items-center gap-3 text-[#94A3B8]">
             <Music className="w-10 h-10 text-[#FFD60A]" />
-            <p className="text-lg font-bold text-white">Lyrics unavailable for this recording</p>
-            <p className="text-xs">Enjoy the uninterrupted instrumental playback.</p>
+            <p className="text-lg font-bold text-white">Lyrics unavailable for this track</p>
+            <p className="text-xs">Enjoy the music on SoundWave.</p>
           </div>
         )}
       </div>

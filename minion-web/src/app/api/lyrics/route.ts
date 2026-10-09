@@ -12,109 +12,105 @@ export async function GET(request: Request) {
   const artist = searchParams.get('artist') || '';
   const duration = Number(searchParams.get('duration')) || 210;
 
-  // Clean title: remove "Official Video", "(Official Music Video)", "ft.", "feat."
-  const cleanTitle = title
-    .replace(/(\[.*?\]|\(.*?\))/g, '')
-    .replace(/(official video|official audio|music video|lyrics|feat\..*|ft\..*)/gi, '')
-    .trim();
+  // Clean title & artist for maximum cross-language match (Hindi, Punjabi, Korean, Spanish, Tamil, English, etc.)
+  const cleanTitle = cleanSongTitle(title);
+  const cleanArtist = cleanArtistName(artist);
 
-  const cleanArtist = artist
-    .replace(/(vevo|official|channel)/gi, '')
-    .trim();
-
-  // 1. Try LrcLib API (free open-source synchronized lyrics database)
+  // Strategy 1: Search exact metadata on LrcLib
   try {
     const res = await axios.get('https://lrclib.net/api/get', {
       params: {
-        track_name: cleanTitle || title,
-        artist_name: cleanArtist || artist,
+        track_name: cleanTitle,
+        artist_name: cleanArtist,
       },
-      headers: {
-        'User-Agent': 'SoundWaveMusic/1.0 (https://github.com/soundwave)',
-      },
-      timeout: 3500,
+      headers: { 'User-Agent': 'SoundWaveMusic/2.0' },
+      timeout: 3000,
     });
 
-    if (res.data && res.data.syncedLyrics) {
+    if (res.data?.syncedLyrics) {
       const parsed = parseLrc(res.data.syncedLyrics);
       if (parsed.length > 0) {
-        return NextResponse.json({
-          lyrics: parsed,
-          source: 'lrclib_synced',
-          plainLyrics: res.data.plainLyrics || null,
-        });
+        return NextResponse.json({ lyrics: parsed, source: 'synced_exact' });
       }
     }
+  } catch (_) {}
 
-    if (res.data && res.data.plainLyrics) {
-      const splitLines = res.data.plainLyrics
-        .split('\n')
-        .map((l: string) => l.trim())
-        .filter((l: string) => l.length > 0);
+  // Strategy 2: Multi-query Search (supports transliterated, regional, and multilingual names)
+  const searchVariations = [
+    `${cleanArtist} ${cleanTitle}`,
+    cleanTitle,
+    `${cleanTitle} lyrics`,
+    `${cleanArtist} lyrics`,
+  ];
 
-      const generatedSynced = generateEstimatedTimings(splitLines, duration);
-      return NextResponse.json({
-        lyrics: generatedSynced,
-        source: 'lrclib_plain',
-        plainLyrics: res.data.plainLyrics,
+  for (const query of searchVariations) {
+    if (!query.trim()) continue;
+    try {
+      const searchRes = await axios.get('https://lrclib.net/api/search', {
+        params: { q: query },
+        headers: { 'User-Agent': 'SoundWaveMusic/2.0' },
+        timeout: 3000,
       });
-    }
-  } catch (err: any) {
-    // Continue to fallback search
-  }
 
-  // 2. Try LrcLib Search Endpoint if exact match failed
-  try {
-    const searchRes = await axios.get('https://lrclib.net/api/search', {
-      params: {
-        q: `${cleanArtist} ${cleanTitle}`,
-      },
-      headers: {
-        'User-Agent': 'SoundWaveMusic/1.0',
-      },
-      timeout: 3500,
-    });
-
-    if (searchRes.data && Array.isArray(searchRes.data) && searchRes.data.length > 0) {
-      const match = searchRes.data.find((item: any) => item.syncedLyrics) || searchRes.data[0];
-      if (match?.syncedLyrics) {
-        const parsed = parseLrc(match.syncedLyrics);
-        if (parsed.length > 0) {
-          return NextResponse.json({
-            lyrics: parsed,
-            source: 'lrclib_search_synced',
-          });
+      if (searchRes.data && Array.isArray(searchRes.data) && searchRes.data.length > 0) {
+        // Priority to synced lyrics in original language / script
+        const syncedItem = searchRes.data.find((item: any) => item.syncedLyrics);
+        if (syncedItem?.syncedLyrics) {
+          const parsed = parseLrc(syncedItem.syncedLyrics);
+          if (parsed.length > 0) {
+            return NextResponse.json({ lyrics: parsed, source: 'synced_search' });
+          }
         }
-      } else if (match?.plainLyrics) {
-        const splitLines = match.plainLyrics
-          .split('\n')
-          .map((l: string) => l.trim())
-          .filter((l: string) => l.length > 0);
-        return NextResponse.json({
-          lyrics: generateEstimatedTimings(splitLines, duration),
-          source: 'lrclib_search_plain',
-        });
+
+        // Second priority: plain lyrics in original language (Hindi/Punjabi/Korean/etc.)
+        const plainItem = searchRes.data.find((item: any) => item.plainLyrics);
+        if (plainItem?.plainLyrics) {
+          const lines = plainItem.plainLyrics
+            .split('\n')
+            .map((l: string) => l.trim())
+            .filter((l: string) => l.length > 0 && !l.startsWith('[') && !l.startsWith('('));
+
+          if (lines.length > 0) {
+            return NextResponse.json({
+              lyrics: generateEstimatedTimings(lines, duration),
+              source: 'plain_search_synced',
+            });
+          }
+        }
       }
-    }
-  } catch (err: any) {
-    // Continue to fallback
+    } catch (_) {}
   }
 
-  // 3. Elegant Contextual Fallback for instrumental / unlisted tracks
+  // Strategy 3: Multilingual Fallback
   return NextResponse.json({
     lyrics: [
       { time: 0, text: `♪ ${cleanTitle || title} ♪` },
-      { time: 6, text: `Performed by ${cleanArtist || artist}` },
-      { time: 14, text: "♪ (Music playing...) ♪" },
-      { time: 30, text: "Feel the rhythm and bassline flow" },
-      { time: 55, text: "♪ (Harmonies & Melody) ♪" },
-      { time: 80, text: "Sing along with the vibe" },
-      { time: 120, text: "♪ (Instrumental Solo) ♪" },
-      { time: 160, text: "♪ (Chorus Replay) ♪" },
-      { time: 190, text: "Music, no interruptions • SoundWave" },
+      { time: 5, text: `Track by ${cleanArtist || artist}` },
+      { time: 12, text: '♪ (Music Playing / संगीत बज रहा है) ♪' },
+      { time: 30, text: 'Feel the rhythm and bassline flow' },
+      { time: 55, text: '♪ (Instrumental & Vocal Harmonies) ♪' },
+      { time: 80, text: 'Sing along with the groove' },
+      { time: 120, text: '♪ (Main Hook Replay) ♪' },
+      { time: 160, text: '♪ (Outro Flow) ♪' },
+      { time: 190, text: 'SoundWave • Music, No Limits' },
     ],
-    source: 'fallback',
+    source: 'contextual_fallback',
   });
+}
+
+function cleanSongTitle(title: string): string {
+  return title
+    .replace(/(\[.*?\]|\(.*?\))/g, '') // remove brackets/parentheses like [Official 4K]
+    .replace(/(official video|official audio|music video|full song|video song|hd|4k|audio|lyric video|lyrics|feat\..*|ft\..*)/gi, '')
+    .replace(/[-|/].*$/g, '') // remove trailing movie names or dashes
+    .trim();
+}
+
+function cleanArtistName(artist: string): string {
+  return artist
+    .replace(/(vevo|official|channel|records|music|entertainment)/gi, '')
+    .replace(/[-|/].*$/g, '')
+    .trim();
 }
 
 function parseLrc(lrcContent: string): LyricLine[] {
@@ -141,8 +137,8 @@ function parseLrc(lrcContent: string): LyricLine[] {
 
 function generateEstimatedTimings(lines: string[], totalDuration: number): LyricLine[] {
   if (lines.length === 0) return [];
-  const startOffset = 5;
-  const usableDuration = Math.max(totalDuration - 10, 30);
+  const startOffset = 4;
+  const usableDuration = Math.max(totalDuration - 8, 30);
   const interval = usableDuration / lines.length;
 
   return lines.map((text, i) => ({
