@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { UnifiedMusicService } from '@/lib/musicProviders/unifiedMusicService';
 import { MusicProvider } from '@/lib/musicProviders/types';
 
+export const dynamic = 'force-dynamic';
+
 const musicService = new UnifiedMusicService();
 
 export async function GET(request: Request) {
