@@ -47,8 +47,11 @@ interface SoundWavePlayerStore {
   hoverGradientColor: string | null;
   setHoverGradientColor: (color: string | null) => void;
 
-  // Lyrics State
+  // Lyrics & Mobile Sheet State
   isLyricsOpen: boolean;
+  isMobileSheetOpen: boolean;
+  setIsMobileSheetOpen: (open: boolean) => void;
+  toggleMobileSheet: () => void;
 
   // 3-Panel Layout & Navigation State
   isLeftRailExpanded: boolean;
@@ -152,6 +155,9 @@ export const useSoundWaveStore = create<SoundWavePlayerStore>()(
       setHoverGradientColor: (color) => set({ hoverGradientColor: color }),
 
       isLyricsOpen: false,
+      isMobileSheetOpen: false,
+      setIsMobileSheetOpen: (open) => set({ isMobileSheetOpen: open }),
+      toggleMobileSheet: () => set((state) => ({ isMobileSheetOpen: !state.isMobileSheetOpen })),
 
       // 3-panel state
       isLeftRailExpanded: true,
