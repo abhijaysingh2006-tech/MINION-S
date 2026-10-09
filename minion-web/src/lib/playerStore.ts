@@ -1,24 +1,43 @@
 import { create } from 'zustand';
-import { Track, INITIAL_TRACKS } from './mockCatalog';
+
+export interface Track {
+  id: string;
+  title: string;
+  artistId: string;
+  artistName: string;
+  albumTitle?: string;
+  coverUrl: string;
+  audioUrl: string; // YouTube video ID or stream url
+  duration: number;
+  timestamp?: string;
+  views?: number;
+  isLiked?: boolean;
+}
 
 export type RepeatMode = 'off' | 'all' | 'one';
+
+declare global {
+  interface Window {
+    onYouTubeIframeAPIReady?: () => void;
+    YT?: any;
+  }
+}
 
 interface PlayerStore {
   currentTrack: Track | null;
   queue: Track[];
   queueIndex: number;
   isPlaying: boolean;
-  volume: number;
+  volume: number; // 0 to 100
   isMuted: boolean;
   currentTime: number;
   duration: number;
   shuffle: boolean;
   repeat: RepeatMode;
-  audioElement: HTMLAudioElement | null;
-  isFullScreenNowPlaying: boolean;
-  isLyricsOpen: boolean;
+  ytPlayer: any | null;
+  likedTrackIds: Set<string>;
 
-  setAudioElement: (element: HTMLAudioElement) => void;
+  setYtPlayer: (player: any) => void;
   playTrack: (track: Track, newQueue?: Track[]) => void;
   togglePlay: () => void;
   seek: (seconds: number) => void;
@@ -28,100 +47,112 @@ interface PlayerStore {
   prevTrack: () => void;
   toggleShuffle: () => void;
   toggleRepeat: () => void;
-  toggleLike: (trackId: string) => void;
-  toggleFullScreenNowPlaying: () => void;
-  toggleLyrics: () => void;
+  toggleLike: (track: Track) => void;
   setCurrentTime: (time: number) => void;
   setDuration: (duration: number) => void;
+  setIsPlaying: (playing: boolean) => void;
 }
 
 export const usePlayerStore = create<PlayerStore>((set, get) => ({
-  currentTrack: INITIAL_TRACKS[0],
-  queue: INITIAL_TRACKS,
+  currentTrack: null,
+  queue: [],
   queueIndex: 0,
   isPlaying: false,
-  volume: 0.85,
+  volume: 80,
   isMuted: false,
   currentTime: 0,
-  duration: INITIAL_TRACKS[0].duration,
+  duration: 0,
   shuffle: false,
   repeat: 'off',
-  audioElement: null,
-  isFullScreenNowPlaying: false,
-  isLyricsOpen: false,
+  ytPlayer: null,
+  likedTrackIds: new Set<string>(),
 
-  setAudioElement: (element) => set({ audioElement: element }),
+  setYtPlayer: (player) => set({ ytPlayer: player }),
 
   playTrack: (track, newQueue) => {
-    const { audioElement } = get();
-    const updatedQueue = newQueue || get().queue;
-    const index = updatedQueue.findIndex((t) => t.id === track.id);
+    const queue = newQueue || get().queue;
+    const exists = queue.findIndex((t) => t.id === track.id);
+    const updatedQueue = exists >= 0 ? queue : [track, ...queue];
+    const index = exists >= 0 ? exists : 0;
 
     set({
       currentTrack: track,
       queue: updatedQueue,
-      queueIndex: index >= 0 ? index : 0,
+      queueIndex: index,
       isPlaying: true,
       currentTime: 0,
+      duration: track.duration || 0,
     });
 
-    if (audioElement) {
-      audioElement.src = track.audioUrl;
-      audioElement.play().catch(console.error);
+    const { ytPlayer } = get();
+    if (ytPlayer && typeof ytPlayer.loadVideoById === 'function') {
+      try {
+        ytPlayer.loadVideoById(track.id);
+        ytPlayer.playVideo();
+      } catch (err) {
+        console.error('YT play error:', err);
+      }
     }
 
-    // Media Session API for OS lock screen / media keys
     if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
       navigator.mediaSession.metadata = new MediaMetadata({
         title: track.title,
         artist: track.artistName,
-        album: track.albumTitle || 'Minion Music',
-        artwork: [
-          { src: track.coverUrl, sizes: '512x512', type: 'image/jpeg' },
-        ],
+        album: 'YouTube Music / Minion',
+        artwork: [{ src: track.coverUrl, sizes: '512x512', type: 'image/jpeg' }],
       });
     }
   },
 
   togglePlay: () => {
-    const { isPlaying, audioElement, currentTrack, queue } = get();
+    const { isPlaying, ytPlayer, currentTrack, queue } = get();
     if (!currentTrack && queue.length > 0) {
       get().playTrack(queue[0]);
       return;
     }
-    if (audioElement) {
-      if (isPlaying) {
-        audioElement.pause();
-      } else {
-        audioElement.play().catch(console.error);
+    if (ytPlayer) {
+      try {
+        if (isPlaying) {
+          ytPlayer.pauseVideo();
+        } else {
+          ytPlayer.playVideo();
+        }
+      } catch (err) {
+        console.error(err);
       }
     }
     set({ isPlaying: !isPlaying });
   },
 
   seek: (seconds) => {
-    const { audioElement } = get();
-    if (audioElement) {
-      audioElement.currentTime = seconds;
+    const { ytPlayer } = get();
+    if (ytPlayer && typeof ytPlayer.seekTo === 'function') {
+      ytPlayer.seekTo(seconds, true);
     }
     set({ currentTime: seconds });
   },
 
   setVolume: (volume) => {
-    const { audioElement } = get();
-    if (audioElement) {
-      audioElement.volume = volume;
+    const { ytPlayer } = get();
+    if (ytPlayer && typeof ytPlayer.setVolume === 'function') {
+      ytPlayer.setVolume(volume);
+      if (volume > 0 && ytPlayer.isMuted && ytPlayer.isMuted()) {
+        ytPlayer.unMute();
+      }
     }
     set({ volume, isMuted: volume === 0 });
   },
 
   toggleMute: () => {
-    const { isMuted, volume, audioElement } = get();
-    const newMuted = !isMuted;
-    if (audioElement) {
-      audioElement.muted = newMuted;
+    const { isMuted, ytPlayer, volume } = get();
+    if (ytPlayer) {
+      if (isMuted) {
+        ytPlayer.unMute();
+      } else {
+        ytPlayer.mute();
+      }
     }
-    set({ isMuted: newMuted });
+    set({ isMuted: !isMuted });
   },
 
   nextTrack: () => {
@@ -130,23 +161,22 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
 
     if (repeat === 'one') {
       get().seek(0);
-      const { audioElement } = get();
-      audioElement?.play();
+      get().ytPlayer?.playVideo();
       return;
     }
 
-    let nextIndex = queueIndex + 1;
+    let nextIdx = queueIndex + 1;
     if (shuffle) {
-      nextIndex = Math.floor(Math.random() * queue.length);
-    } else if (nextIndex >= queue.length) {
+      nextIdx = Math.floor(Math.random() * queue.length);
+    } else if (nextIdx >= queue.length) {
       if (repeat === 'all') {
-        nextIndex = 0;
+        nextIdx = 0;
       } else {
         set({ isPlaying: false });
         return;
       }
     }
-    get().playTrack(queue[nextIndex]);
+    get().playTrack(queue[nextIdx]);
   },
 
   prevTrack: () => {
@@ -155,8 +185,8 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       get().seek(0);
       return;
     }
-    const prevIndex = queueIndex - 1 >= 0 ? queueIndex - 1 : queue.length - 1;
-    get().playTrack(queue[prevIndex]);
+    const prevIdx = queueIndex - 1 >= 0 ? queueIndex - 1 : queue.length - 1;
+    get().playTrack(queue[prevIdx]);
   },
 
   toggleShuffle: () => set((state) => ({ shuffle: !state.shuffle })),
@@ -168,20 +198,18 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       return { repeat: modes[nextIdx] };
     }),
 
-  toggleLike: (trackId) =>
-    set((state) => ({
-      queue: state.queue.map((t) => (t.id === trackId ? { ...t, isLiked: !t.isLiked } : t)),
-      currentTrack:
-        state.currentTrack?.id === trackId
-          ? { ...state.currentTrack, isLiked: !state.currentTrack.isLiked }
-          : state.currentTrack,
-    })),
-
-  toggleFullScreenNowPlaying: () =>
-    set((state) => ({ isFullScreenNowPlaying: !state.isFullScreenNowPlaying })),
-
-  toggleLyrics: () => set((state) => ({ isLyricsOpen: !state.isLyricsOpen })),
+  toggleLike: (track) =>
+    set((state) => {
+      const nextLiked = new Set(state.likedTrackIds);
+      if (nextLiked.has(track.id)) {
+        nextLiked.delete(track.id);
+      } else {
+        nextLiked.add(track.id);
+      }
+      return { likedTrackIds: nextLiked };
+    }),
 
   setCurrentTime: (currentTime) => set({ currentTime }),
   setDuration: (duration) => set({ duration }),
+  setIsPlaying: (isPlaying) => set({ isPlaying }),
 }));
