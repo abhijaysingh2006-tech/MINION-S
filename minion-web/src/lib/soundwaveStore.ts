@@ -35,6 +35,9 @@ interface SoundWavePlayerStore {
   playlists: CustomPlaylist[];
   toasts: ToastMessage[];
 
+  // Lyrics State
+  isLyricsOpen: boolean;
+
   // Navigation State
   activeTab: 'home' | 'search' | 'library' | 'favorites' | 'playlist';
   activePlaylistId: string | null;
@@ -46,6 +49,8 @@ interface SoundWavePlayerStore {
   setActivePlaylistId: (id: string | null) => void;
   setActiveProviderFilter: (provider: string) => void;
   setSearchQuery: (query: string) => void;
+  toggleLyrics: () => void;
+  setIsLyricsOpen: (open: boolean) => void;
   setAudioElement: (el: HTMLAudioElement) => void;
   setYtPlayer: (player: any) => void;
   playTrack: (track: UnifiedTrack, newQueue?: UnifiedTrack[]) => void;
@@ -106,6 +111,7 @@ export const useSoundWaveStore = create<SoundWavePlayerStore>((set, get) => ({
     },
   ],
   toasts: [],
+  isLyricsOpen: false,
 
   activeTab: 'home',
   activePlaylistId: null,
@@ -116,6 +122,8 @@ export const useSoundWaveStore = create<SoundWavePlayerStore>((set, get) => ({
   setActivePlaylistId: (id) => set({ activePlaylistId: id, activeTab: 'playlist' }),
   setActiveProviderFilter: (provider) => set({ activeProviderFilter: provider }),
   setSearchQuery: (query) => set({ searchQuery: query }),
+  toggleLyrics: () => set((state) => ({ isLyricsOpen: !state.isLyricsOpen })),
+  setIsLyricsOpen: (open) => set({ isLyricsOpen: open }),
   setAudioElement: (el) => set({ audioElement: el }),
   setYtPlayer: (player) => set({ ytPlayer: player }),
 

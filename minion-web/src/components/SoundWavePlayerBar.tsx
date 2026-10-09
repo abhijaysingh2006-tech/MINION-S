@@ -15,6 +15,7 @@ import {
   Heart,
   Loader2,
   ExternalLink,
+  Mic2,
 } from 'lucide-react';
 import { useSoundWaveStore } from '@/lib/soundwaveStore';
 
@@ -23,7 +24,6 @@ export const SoundWavePlayerBar: React.FC = () => {
     currentTrack,
     isPlaying,
     isLoading,
-    playbackError,
     volume,
     isMuted,
     currentTime,
@@ -31,6 +31,8 @@ export const SoundWavePlayerBar: React.FC = () => {
     shuffle,
     repeat,
     favorites,
+    isLyricsOpen,
+    toggleLyrics,
     togglePlay,
     seek,
     setVolume,
@@ -69,7 +71,7 @@ export const SoundWavePlayerBar: React.FC = () => {
   };
 
   return (
-    <footer className="h-20 bg-[#121318] border-t border-[#24252B] px-4 md:px-8 flex items-center justify-between select-none z-50 shrink-0">
+    <footer className="h-20 bg-[#121318] border-t border-[#24252B] px-4 md:px-8 flex items-center justify-between select-none z-40 shrink-0">
       {/* Left: Track Information */}
       <div className="flex items-center gap-3.5 w-[30%] min-w-[200px]">
         {currentTrack ? (
@@ -178,10 +180,24 @@ export const SoundWavePlayerBar: React.FC = () => {
         </div>
       </div>
 
-      {/* Right: Volume & Provider Badge */}
+      {/* Right: Lyrics Button, Volume & Provider Badge */}
       <div className="flex items-center justify-end gap-3.5 w-[30%] min-w-[200px]">
+        {/* Lyrics Button with Mic icon */}
+        <button
+          onClick={toggleLyrics}
+          className={`p-2 rounded-xl flex items-center gap-1.5 text-xs font-bold transition-all ${
+            isLyricsOpen
+              ? 'bg-[#FFD60A] text-black shadow-lg scale-105'
+              : 'bg-[#18191E] text-[#94A3B8] hover:text-white hover:bg-[#24252B] border border-[#24252B]'
+          }`}
+          title="Live Synced Lyrics"
+        >
+          <Mic2 className="w-4 h-4" />
+          <span className="hidden sm:inline">Lyrics</span>
+        </button>
+
         {currentTrack && (
-          <div className={`hidden lg:flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${getProviderTag(currentTrack.provider).badge}`}>
+          <div className={`hidden xl:flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${getProviderTag(currentTrack.provider).badge}`}>
             <span>{getProviderTag(currentTrack.provider).label}</span>
             {currentTrack.trackPageUrl && (
               <a

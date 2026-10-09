@@ -6,6 +6,7 @@ import { SoundWaveMainView } from '@/components/SoundWaveMainView';
 import { SoundWavePlayerBar } from '@/components/SoundWavePlayerBar';
 import { SoundWaveAudioEngine } from '@/lib/SoundWaveAudioEngine';
 import { ToastContainer } from '@/components/ToastContainer';
+import { LyricsView } from '@/components/LyricsView';
 
 export default function Home() {
   return (
@@ -15,6 +16,9 @@ export default function Home() {
 
       {/* Global Interactive Notification Toasts */}
       <ToastContainer />
+
+      {/* Full-Screen Real-Time Karaoke Synced Lyrics */}
+      <LyricsView />
 
       {/* Main Spotify-style 2-Column Application Layout */}
       <div className="flex flex-1 overflow-hidden">
