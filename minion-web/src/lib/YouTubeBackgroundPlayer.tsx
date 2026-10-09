@@ -4,7 +4,7 @@ import React, { useEffect, useRef } from 'react';
 import { usePlayerStore } from './playerStore';
 
 export const YouTubeBackgroundPlayer: React.FC = () => {
-  const containerRef = useRef<HTMLDivElement | null>(null);
+  const playerRef = useRef<any>(null);
   const {
     currentTrack,
     setYtPlayer,
@@ -13,37 +13,40 @@ export const YouTubeBackgroundPlayer: React.FC = () => {
     setIsPlaying,
     nextTrack,
     volume,
+    isPlaying,
   } = usePlayerStore();
 
   useEffect(() => {
-    // Load YouTube IFrame API script tag
+    // 1. Load YouTube Iframe API if not already present
     if (!window.YT) {
       const tag = document.createElement('script');
       tag.src = 'https://www.youtube.com/iframe_api';
       const firstScriptTag = document.getElementsByTagName('script')[0];
-      firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
+      firstScriptTag?.parentNode?.insertBefore(tag, firstScriptTag);
     }
 
-    const initPlayer = () => {
-      if (window.YT && window.YT.Player && containerRef.current) {
-        const player = new window.YT.Player('yt-hidden-player', {
-          height: '10',
-          width: '10',
-          videoId: currentTrack ? currentTrack.id : '',
+    const onYouTubeReady = () => {
+      if (window.YT && window.YT.Player) {
+        playerRef.current = new window.YT.Player('yt-audio-player', {
+          height: '200',
+          width: '200',
+          videoId: '',
           playerVars: {
-            playsinline: 1,
+            autoplay: 1,
             controls: 0,
             disablekb: 1,
+            enablejsapi: 1,
             fs: 0,
             rel: 0,
-            origin: window.location.origin,
+            origin: typeof window !== 'undefined' ? window.location.origin : '',
           },
           events: {
             onReady: (event: any) => {
               setYtPlayer(event.target);
               event.target.setVolume(volume);
-              if (currentTrack) {
-                event.target.loadVideoById(currentTrack.id);
+              const storeTrack = usePlayerStore.getState().currentTrack;
+              if (storeTrack) {
+                event.target.loadVideoById(storeTrack.id);
                 event.target.playVideo();
               }
             },
@@ -51,13 +54,16 @@ export const YouTubeBackgroundPlayer: React.FC = () => {
               // 1 = PLAYING, 2 = PAUSED, 0 = ENDED
               if (event.data === 1) {
                 setIsPlaying(true);
-                const dur = event.target.getDuration();
-                if (dur) setDuration(dur);
+                const d = event.target.getDuration();
+                if (d) setDuration(d);
               } else if (event.data === 2) {
                 setIsPlaying(false);
               } else if (event.data === 0) {
                 nextTrack();
               }
+            },
+            onError: (err: any) => {
+              console.warn('YouTube playback event error:', err);
             },
           },
         });
@@ -65,40 +71,53 @@ export const YouTubeBackgroundPlayer: React.FC = () => {
     };
 
     if (window.YT && window.YT.Player) {
-      initPlayer();
+      onYouTubeReady();
     } else {
-      window.onYouTubeIframeAPIReady = initPlayer;
+      window.onYouTubeIframeAPIReady = onYouTubeReady;
     }
 
-    // Time ticker for progress bar
+    // Interval to poll currentTime
     const interval = setInterval(() => {
-      const { ytPlayer, isPlaying } = usePlayerStore.getState();
-      if (ytPlayer && isPlaying && typeof ytPlayer.getCurrentTime === 'function') {
-        const curr = ytPlayer.getCurrentTime();
-        if (curr !== undefined && !isNaN(curr)) {
-          setCurrentTime(curr);
+      if (playerRef.current && typeof playerRef.current.getCurrentTime === 'function') {
+        const state = usePlayerStore.getState();
+        if (state.isPlaying) {
+          const t = playerRef.current.getCurrentTime();
+          if (t !== undefined && !isNaN(t)) {
+            setCurrentTime(t);
+          }
         }
       }
-    }, 500);
+    }, 400);
 
     return () => clearInterval(interval);
   }, []);
 
+  // Watch for track changes
+  useEffect(() => {
+    if (currentTrack && playerRef.current && typeof playerRef.current.loadVideoById === 'function') {
+      try {
+        playerRef.current.loadVideoById(currentTrack.id);
+        playerRef.current.playVideo();
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  }, [currentTrack]);
+
   return (
     <div
-      ref={containerRef}
       style={{
         position: 'fixed',
-        bottom: -200,
-        right: -200,
-        width: 1,
-        height: 1,
-        opacity: 0,
+        left: -9999,
+        top: -9999,
+        width: 200,
+        height: 200,
+        opacity: 0.01,
         pointerEvents: 'none',
-        zIndex: -1,
+        zIndex: -99,
       }}
     >
-      <div id="yt-hidden-player" />
+      <div id="yt-audio-player" />
     </div>
   );
 };
