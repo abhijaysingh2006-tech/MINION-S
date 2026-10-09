@@ -5,7 +5,7 @@ interface SoundWaveLogoProps {
   className?: string;
 }
 
-export const SoundWaveLogo: React.FC<SoundWaveLogoProps> = ({ size = 36, className = '' }) => {
+export const SoundWaveLogo: React.FC<SoundWaveLogoProps> = ({ size = 32, className = '' }) => {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -16,19 +16,18 @@ export const SoundWaveLogo: React.FC<SoundWaveLogoProps> = ({ size = 36, classNa
       aria-label="SoundWave Logo"
     >
       <defs>
-        <linearGradient id="soundwaveGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#1ED760" />
-          <stop offset="100%" stopColor="#1DB954" />
+        <linearGradient id="swYellowGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#FFE033" />
+          <stop offset="100%" stopColor="#FFD60A" />
         </linearGradient>
       </defs>
-      <circle cx="50" cy="50" r="46" fill="#121212" stroke="#282828" strokeWidth="2" />
-      <g fill="url(#soundwaveGrad)">
-        <rect x="22" y="38" width="6" height="24" rx="3" />
-        <rect x="32" y="26" width="6" height="48" rx="3" />
-        <rect x="42" y="16" width="6" height="68" rx="3" />
-        <rect x="52" y="24" width="6" height="52" rx="3" />
-        <rect x="62" y="32" width="6" height="36" rx="3" />
-        <rect x="72" y="42" width="6" height="16" rx="3" />
+      <rect width="100" height="100" rx="24" fill="#18191E" stroke="#24252B" strokeWidth="3" />
+      <g fill="url(#swYellowGrad)">
+        <rect x="22" y="38" width="8" height="24" rx="4" />
+        <rect x="34" y="24" width="8" height="52" rx="4" />
+        <rect x="46" y="14" width="8" height="72" rx="4" />
+        <rect x="58" y="28" width="8" height="44" rx="4" />
+        <rect x="70" y="40" width="8" height="20" rx="4" />
       </g>
     </svg>
   );

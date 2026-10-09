@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Minion — Music, no interruptions.',
-  description: 'Ad-free music streaming experience with HLS adaptive audio, verified artists, and fan tipping.',
+  title: 'SoundWave — Music Streaming Platform',
+  description: 'Spotify-style ad-free legal music streaming aggregator powered by Jamendo, Deezer, YouTube & Archive.org',
 };
 
 export default function RootLayout({
@@ -12,8 +12,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="dark">
-      <body className="bg-[#0F0F12] text-white antialiased selection:bg-minion-yellow selection:text-black">
+    <html lang="en" className="dark h-full">
+      <body className="bg-[#0F0F12] text-[#F8FAFC] h-full antialiased selection:bg-[#FFD60A] selection:text-black">
         {children}
       </body>
     </html>
