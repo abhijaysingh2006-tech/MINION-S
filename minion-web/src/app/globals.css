@@ -4,8 +4,8 @@
 
 @layer base {
   body {
-    background-color: #0F0F12;
-    color: #F8FAFC;
+    background-color: #000000;
+    color: #FFFFFF;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     overflow: hidden;
     user-select: none;
@@ -13,31 +13,45 @@
   }
 }
 
-/* Custom modern scrollbar */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+/* Thin custom scrollbars that appear smoothly on container hover */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 0.2s ease-in-out;
 }
 
-::-webkit-scrollbar-track {
+.custom-scrollbar:hover {
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
   background: transparent;
 }
 
-::-webkit-scrollbar-thumb {
-  background: #24252B;
-  border-radius: 4px;
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 9999px;
+  transition: background 0.2s ease;
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: #3B3C46;
+.custom-scrollbar:hover::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.25);
 }
 
-/* Range inputs for scrubber & volume */
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.45);
+}
+
+/* Slider accent color */
 input[type="range"] {
   accent-color: #FFD60A;
 }
 
-/* Focus outline for accessibility */
 *:focus-visible {
   outline: 2px solid #FFD60A;
   outline-offset: 2px;

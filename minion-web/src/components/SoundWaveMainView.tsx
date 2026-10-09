@@ -4,17 +4,23 @@ import React, { useState, useEffect } from 'react';
 import {
   Play,
   Pause,
-  Search,
+  ArrowLeft,
+  Flame,
+  Sparkles,
+  Music2,
+  Radio,
+  Globe2,
   Clock,
   Heart,
-  Flame,
-  Globe2,
-  Disc3,
   Loader2,
-  Plus,
+  Layers,
 } from 'lucide-react';
 import { useSoundWaveStore } from '@/lib/soundwaveStore';
 import { UnifiedTrack } from '@/lib/musicProviders/types';
+import { QuickPickTile } from './QuickPickTile';
+import { ShelfSection } from './ShelfSection';
+import { TrackCard } from './TrackCard';
+import { extractDominantColor, DEFAULT_GRADIENT_COLOR } from '@/lib/colorExtractor';
 
 export const SoundWaveMainView: React.FC = () => {
   const {
@@ -24,294 +30,375 @@ export const SoundWaveMainView: React.FC = () => {
     playlists,
     activeProviderFilter,
     setActiveProviderFilter,
+    activeCategoryFilter,
+    setActiveCategoryFilter,
     searchQuery,
     setSearchQuery,
     currentTrack,
     isPlaying,
     playTrack,
+    togglePlay,
     toggleFavorite,
     favorites,
     showToast,
+    selectedSection,
+    setSelectedSection,
+    hoverGradientColor,
   } = useSoundWaveStore();
 
-  const [tracks, setTracks] = useState<UnifiedTrack[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [searchTimer, setSearchTimer] = useState<NodeJS.Timeout | null>(null);
+  const [shelves, setShelves] = useState<{
+    trending: UnifiedTrack[];
+    newReleases: UnifiedTrack[];
+    madeForYou: UnifiedTrack[];
+    creativeCommons: UnifiedTrack[];
+    classic: UnifiedTrack[];
+    youtube: UnifiedTrack[];
+  }>({
+    trending: [],
+    newReleases: [],
+    madeForYou: [],
+    creativeCommons: [],
+    classic: [],
+    youtube: [],
+  });
 
-  const fetchTracks = async (q: string, provider?: string) => {
-    setIsLoading(true);
-    try {
-      const pParam = provider && provider !== 'all' ? `&provider=${provider}` : '';
-      const res = await fetch(`/api/music/search?q=${encodeURIComponent(q || 'top billboard hits')}${pParam}`);
-      const data = await res.json();
-      if (data.tracks) {
-        setTracks(data.tracks);
-      } else {
-        showToast('No tracks found for this query', 'info');
-      }
-    } catch (e: any) {
-      console.error(e);
-      showToast('Error connecting to music providers', 'error');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const [sectionTracks, setSectionTracks] = useState<UnifiedTrack[]>([]);
+  const [isSectionLoading, setIsSectionLoading] = useState(false);
+  const [isShelvesLoading, setIsShelvesLoading] = useState(true);
+  const [searchResults, setSearchResults] = useState<UnifiedTrack[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [currentCoverGradient, setCurrentCoverGradient] = useState(DEFAULT_GRADIENT_COLOR);
 
+  // Load all shelves data on mount
   useEffect(() => {
-    fetchTracks(searchQuery, activeProviderFilter);
-  }, [activeProviderFilter]);
+    let isMounted = true;
+    const fetchShelves = async () => {
+      setIsShelvesLoading(true);
+      try {
+        const res = await fetch('/api/music/shelves');
+        const data = await res.json();
+        if (isMounted && data.shelves) {
+          setShelves({
+            trending: data.shelves.trending || [],
+            newReleases: data.shelves.newReleases || [],
+            madeForYou: data.shelves.madeForYou || [],
+            creativeCommons: data.shelves.creativeCommons || [],
+            classic: data.shelves.classic || [],
+            youtube: data.shelves.youtube || [],
+          });
+        }
+      } catch (err) {
+        console.error('Failed to load shelves:', err);
+      } finally {
+        if (isMounted) setIsShelvesLoading(false);
+      }
+    };
 
-  const handleSearchChange = (val: string) => {
-    setSearchQuery(val);
-    if (searchTimer) clearTimeout(searchTimer);
-    const timer = setTimeout(() => {
-      fetchTracks(val, activeProviderFilter);
-    }, 450);
-    setSearchTimer(timer);
-  };
+    fetchShelves();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
-  // Determine which track list to show based on active tab
-  let displayedTracks: UnifiedTrack[] = tracks;
-  let viewTitle = 'Trending & New Releases';
-  let viewSubtitle = 'Discover tracks across Jamendo, Deezer, YouTube & Archive.org';
+  // Update dominant color when current track changes
+  useEffect(() => {
+    if (currentTrack?.coverArtwork) {
+      extractDominantColor(currentTrack.coverArtwork).then((color) => {
+        setCurrentCoverGradient(color);
+      });
+    }
+  }, [currentTrack]);
 
-  if (activeTab === 'favorites') {
-    displayedTracks = favorites;
-    viewTitle = 'Liked Songs';
-    viewSubtitle = `${favorites.length} saved songs in your library`;
-  } else if (activeTab === 'search') {
-    viewTitle = searchQuery ? `Search Results for "${searchQuery}"` : 'Search & Discover';
-    viewSubtitle = 'Query the entire legal music web with zero ads';
-  } else if (activeTab === 'library') {
-    viewTitle = 'Your Music Library';
-    viewSubtitle = `${playlists.length} playlists • ${favorites.length} liked tracks`;
-  } else if (activeTab === 'playlist') {
-    const pl = playlists.find((p) => p.id === activePlaylistId);
-    viewTitle = pl?.name || 'Playlist';
-    viewSubtitle = pl?.description || 'Custom SoundWave collection';
-  }
+  // Handle section tracks fetching when "Show all" is active
+  useEffect(() => {
+    if (activeTab === 'section' && selectedSection) {
+      setIsSectionLoading(true);
+      const fetchSection = async () => {
+        try {
+          const pParam =
+            selectedSection.provider && selectedSection.provider !== 'all'
+              ? `&provider=${selectedSection.provider}`
+              : '';
+          const res = await fetch(
+            `/api/music/search?q=${encodeURIComponent(selectedSection.query)}${pParam}`
+          );
+          const data = await res.json();
+          setSectionTracks(data.tracks || []);
+        } catch (e) {
+          console.error(e);
+        } finally {
+          setIsSectionLoading(false);
+        }
+      };
+      fetchSection();
+    }
+  }, [activeTab, selectedSection]);
+
+  // Handle Search Query changes
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
+
+    setIsSearching(true);
+    const timer = setTimeout(async () => {
+      try {
+        const pParam =
+          activeProviderFilter && activeProviderFilter !== 'all'
+            ? `&provider=${activeProviderFilter}`
+            : '';
+        const res = await fetch(
+          `/api/music/search?q=${encodeURIComponent(searchQuery)}${pParam}`
+        );
+        const data = await res.json();
+        setSearchResults(data.tracks || []);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery, activeProviderFilter]);
+
+  // Derive quick-pick tracks from trending + favorites (up to 8 items for 2x4 grid)
+  const quickPickTracks: UnifiedTrack[] = React.useMemo(() => {
+    const list = [...(favorites.length > 0 ? favorites : []), ...shelves.trending];
+    // Remove duplicates
+    const unique = Array.from(new Map(list.map((t) => [t.id, t])).values());
+    return unique.slice(0, 8);
+  }, [favorites, shelves.trending]);
+
+  // Top gradient color: prioritize hovered tile, then current track, then slate fallback
+  const ambientBgColor = hoverGradientColor || currentCoverGradient || '#1E293B';
 
   return (
-    <div className="flex-1 overflow-y-auto bg-[#0F0F12] rounded-2xl m-3 ml-0 p-6 md:p-8 flex flex-col text-white select-none border border-[#18191E] shadow-2xl">
-      {/* Search Header Bar */}
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-8">
-        <div className="relative max-w-md w-full">
-          <Search className="w-4 h-4 text-[#94A3B8] absolute left-4 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder="Search songs, artists, Jamendo, Deezer, YouTube..."
-            value={searchQuery}
-            onChange={(e) => handleSearchChange(e.target.value)}
-            className="w-full pl-11 pr-4 py-2.5 rounded-full bg-[#18191E] hover:bg-[#202127] focus:bg-[#202127] border border-[#24252B] focus:border-[#FFD60A] text-sm text-white placeholder-[#64748B] focus:outline-none transition-all shadow-inner"
-          />
-        </div>
+    <div className="flex-1 overflow-y-auto rounded-xl bg-[#121212] min-h-0 flex flex-col text-white relative shadow-2xl overflow-x-hidden">
+      {/* 1. TOP AMBIENT GRADIENT (Fading within first 300px) */}
+      <div
+        className="absolute top-0 left-0 right-0 h-[340px] pointer-events-none transition-all duration-700 ease-out z-0"
+        style={{
+          background: `linear-gradient(180deg, ${ambientBgColor} 0%, rgba(18, 18, 18, 0.9) 70%, #121212 100%)`,
+          opacity: 0.65,
+        }}
+      />
 
-        {/* Quick Filter Source Pills */}
-        <div className="flex items-center gap-2 overflow-x-auto text-xs pb-1">
-          {[
-            { id: 'all', label: 'All Sources' },
-            { id: 'jamendo', label: 'Jamendo' },
-            { id: 'deezer', label: 'Deezer' },
-            { id: 'youtube', label: 'YouTube' },
-            { id: 'archive', label: 'Archive.org' },
-          ].map((p) => (
-            <button
-              key={p.id}
-              onClick={() => {
-                setActiveProviderFilter(p.id);
-                showToast(`Filter: ${p.label}`, 'info');
-              }}
-              className={`px-3 py-1.5 rounded-full font-bold transition-all ${
-                activeProviderFilter === p.id
-                  ? 'bg-[#FFD60A] text-black shadow-md scale-105'
-                  : 'bg-[#18191E] text-[#94A3B8] hover:text-white border border-[#24252B]'
-              }`}
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
-      </header>
-
-      {/* Hero Welcome Card */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#18191E] via-[#1E2028] to-[#121318] p-6 md:p-8 border border-[#24252B] mb-8 shadow-xl">
-        <div className="relative z-10 space-y-2 max-w-xl">
-          <span className="px-2.5 py-0.5 rounded-full bg-[#FFD60A] text-black text-[10px] font-black uppercase tracking-wider">
-            100% Ad-Free
-          </span>
-          <h1 className="text-3xl md:text-4xl font-black tracking-tight text-white">
-            {viewTitle}
-          </h1>
-          <p className="text-xs md:text-sm text-[#94A3B8]">
-            {viewSubtitle}
-          </p>
-        </div>
-      </div>
-
-      {/* Quick Mix Cards (Home View) */}
-      {activeTab === 'home' && !searchQuery && (
-        <section className="mb-8">
-          <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-            <Flame className="w-5 h-5 text-[#FFD60A]" /> Featured Collections
-          </h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
+      <div className="relative z-10 flex flex-col p-6 md:p-8 space-y-8">
+        {/* 2. FILTER CHIPS ROWS */}
+        <div className="flex flex-col gap-3">
+          {/* Row 1: All, Music, Podcasts */}
+          <div className="flex items-center gap-2">
             {[
-              { title: 'Top 50 Global Hits', query: 'popular billboard songs', provider: 'all', icon: Flame },
-              { title: 'Electronic & Synth', query: 'electronic dance music', provider: 'jamendo', icon: Disc3 },
-              { title: 'Classic Open Audio', query: 'classic radio live', provider: 'archive', icon: Globe2 },
-              { title: 'Chill Acoustic Vibes', query: 'acoustic chill indie', provider: 'deezer', icon: Heart },
-            ].map((mix, idx) => {
-              const MixIcon = mix.icon;
-              return (
-                <div
-                  key={idx}
-                  onClick={() => {
-                    setActiveProviderFilter(mix.provider);
-                    handleSearchChange(mix.query);
-                  }}
-                  className="group flex items-center gap-3 p-3 rounded-xl bg-[#18191E] hover:bg-[#24252B] border border-[#24252B] hover:border-[#FFD60A]/40 cursor-pointer transition-all shadow-md"
-                >
-                  <div className="w-10 h-10 rounded-lg bg-[#0F0F12] flex items-center justify-center text-[#FFD60A] shrink-0 group-hover:scale-110 transition-transform">
-                    <MixIcon className="w-5 h-5" />
-                  </div>
-                  <span className="font-bold text-xs md:text-sm text-white truncate flex-1">
-                    {mix.title}
-                  </span>
-                </div>
-              );
-            })}
+              { id: 'all', label: 'All' },
+              { id: 'music', label: 'Music' },
+              { id: 'podcasts', label: 'Podcasts' },
+            ].map((cat) => (
+              <button
+                key={cat.id}
+                onClick={() => setActiveCategoryFilter(cat.id as any)}
+                className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all duration-150 ${
+                  activeCategoryFilter === cat.id
+                    ? 'bg-white text-black shadow-md scale-105'
+                    : 'bg-[#2A2A2A]/80 text-[#B3B3B3] hover:text-white hover:bg-[#333333]'
+                }`}
+              >
+                {cat.label}
+              </button>
+            ))}
           </div>
-        </section>
-      )}
 
-      {/* Loading Skeleton */}
-      {isLoading && (
-        <div className="flex flex-col items-center justify-center py-20 gap-3 text-[#94A3B8]">
-          <Loader2 className="w-8 h-8 animate-spin text-[#FFD60A]" />
-          <p className="text-sm font-semibold">Aggregating music from live providers...</p>
+          {/* Row 2: Source Filter Chips */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+            {[
+              { id: 'all', label: 'All Sources' },
+              { id: 'jamendo', label: 'Jamendo' },
+              { id: 'deezer', label: 'Deezer' },
+              { id: 'youtube', label: 'YouTube' },
+              { id: 'archive', label: 'Archive.org' },
+            ].map((src) => (
+              <button
+                key={src.id}
+                onClick={() => {
+                  setActiveProviderFilter(src.id);
+                  showToast(`Filter: ${src.label}`, 'info');
+                }}
+                className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${
+                  activeProviderFilter === src.id
+                    ? 'bg-[#FFD60A] text-black shadow-md'
+                    : 'bg-[#1F1F1F]/90 text-[#B3B3B3] hover:text-white border border-[#2D2D2D] hover:border-[#444444]'
+                }`}
+              >
+                {src.label}
+              </button>
+            ))}
+          </div>
         </div>
-      )}
 
-      {/* Track List Table */}
-      {!isLoading && (
-        <div className="space-y-4">
-          <div className="w-full">
-            {/* Table Header */}
-            <div className="grid grid-cols-12 px-4 py-2.5 border-b border-[#24252B] text-xs font-bold text-[#64748B] uppercase tracking-wider">
-              <span className="col-span-1">#</span>
-              <span className="col-span-6 md:col-span-4">Title</span>
-              <span className="hidden md:block col-span-3">Artist & Album</span>
-              <span className="col-span-2 hidden md:block">Source & License</span>
-              <span className="col-span-5 md:col-span-2 text-right flex items-center justify-end gap-1">
-                <Clock className="w-3.5 h-3.5" /> Duration
-              </span>
-            </div>
+        {/* 3. CONDITIONAL MAIN VIEW CONTENT */}
 
-            {/* Track Rows */}
-            <div className="divide-y divide-transparent mt-1 space-y-1">
-              {displayedTracks.map((track, idx) => {
-                const isThisPlaying = currentTrack?.id === track.id && isPlaying;
-                const isFavorited = favorites.some((f) => f.id === track.id);
-
-                return (
-                  <div
-                    key={track.id}
-                    onClick={() => playTrack(track, displayedTracks)}
-                    className={`group grid grid-cols-12 items-center px-4 py-3 rounded-xl cursor-pointer transition-all ${
-                      currentTrack?.id === track.id
-                        ? 'bg-[#24252B] text-white ring-1 ring-[#FFD60A]/40'
-                        : 'hover:bg-[#18191E] text-[#94A3B8]'
-                    }`}
-                  >
-                    {/* Index / Play Action */}
-                    <div className="col-span-1 text-sm font-bold text-[#64748B]">
-                      <span className="group-hover:hidden">{idx + 1}</span>
-                      <button className="hidden group-hover:block text-white">
-                        {isThisPlaying ? (
-                          <Pause className="w-4 h-4 fill-current text-[#FFD60A]" />
-                        ) : (
-                          <Play className="w-4 h-4 fill-current text-[#FFD60A]" />
-                        )}
-                      </button>
-                    </div>
-
-                    {/* Cover Art & Title */}
-                    <div className="col-span-6 md:col-span-4 flex items-center gap-3.5 overflow-hidden">
-                      <img
-                        src={track.coverArtwork}
-                        alt={track.title}
-                        className="w-11 h-11 rounded-lg object-cover shrink-0 shadow-md border border-white/5"
-                      />
-                      <div className="overflow-hidden">
-                        <p
-                          className={`text-sm font-bold truncate ${
-                            currentTrack?.id === track.id ? 'text-[#FFD60A]' : 'text-white'
-                          }`}
-                        >
-                          {track.title}
-                        </p>
-                        <p className="text-xs text-[#94A3B8] truncate md:hidden">
-                          {track.artist}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Artist & Album */}
-                    <div className="hidden md:block col-span-3 text-xs text-[#94A3B8] truncate">
-                      <span className="text-white font-medium block truncate">{track.artist}</span>
-                      <span className="text-[#64748B] truncate block">{track.album}</span>
-                    </div>
-
-                    {/* Source & License Badge */}
-                    <div className="hidden md:block col-span-2 text-xs">
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-[#0F0F12] text-[#FFD60A] border border-[#24252B]">
-                        {track.provider}
-                      </span>
-                      {track.previewNotice && (
-                        <span className="block text-[10px] text-indigo-400 font-semibold truncate mt-0.5">
-                          {track.previewNotice}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Favorite and Duration */}
-                    <div className="col-span-5 md:col-span-2 flex items-center justify-end gap-3 text-xs text-[#94A3B8] font-mono">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleFavorite(track);
-                        }}
-                        className={`p-1 transition-colors ${
-                          isFavorited
-                            ? 'text-[#FFD60A]'
-                            : 'opacity-0 group-hover:opacity-100 hover:text-white'
-                        }`}
-                        title={isFavorited ? 'Remove favorite' : 'Add favorite'}
-                      >
-                        <Heart className={`w-4 h-4 ${isFavorited ? 'fill-current' : ''}`} />
-                      </button>
-                      <span>{track.durationFormatted}</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Empty State */}
-            {displayedTracks.length === 0 && (
-              <div className="py-20 text-center space-y-3">
-                <div className="w-12 h-12 rounded-full bg-[#18191E] flex items-center justify-center mx-auto text-xl text-[#FFD60A]">
-                  ♪
-                </div>
-                <p className="text-base font-bold text-white">No songs in this view</p>
-                <p className="text-xs text-[#94A3B8]">
-                  Search for your favorite artist above or pick a different source.
+        {/* SECTION VIEW (When "Show all" was clicked on any shelf) */}
+        {activeTab === 'section' && selectedSection && (
+          <div className="space-y-6">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => setActiveTab('home')}
+                className="p-2 rounded-full bg-[#1F1F1F] hover:bg-[#2A2A2A] text-white transition-all hover:scale-105"
+                title="Back to Home"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </button>
+              <div>
+                <h1 className="text-3xl font-extrabold text-white tracking-tight">
+                  {selectedSection.title}
+                </h1>
+                <p className="text-xs text-[#B3B3B3] mt-1">
+                  Full collection from {selectedSection.provider.toUpperCase()} & global catalog
                 </p>
+              </div>
+            </div>
+
+            {isSectionLoading ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                {Array.from({ length: 12 }).map((_, i) => (
+                  <div key={i} className="p-3.5 bg-[#181818] rounded-xl animate-pulse space-y-3">
+                    <div className="w-full aspect-square bg-[#242424] rounded-lg" />
+                    <div className="h-4 bg-[#282828] rounded w-3/4" />
+                    <div className="h-3 bg-[#242424] rounded w-1/2" />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                {sectionTracks.map((track) => (
+                  <TrackCard key={track.id} track={track} queueList={sectionTracks} />
+                ))}
               </div>
             )}
           </div>
-        </div>
-      )}
+        )}
+
+        {/* SEARCH RESULTS VIEW */}
+        {(activeTab === 'search' || searchQuery.trim() !== '') && activeTab !== 'section' && (
+          <div className="space-y-6">
+            <h2 className="text-2xl font-bold text-white tracking-tight">
+              {searchQuery ? `Results for "${searchQuery}"` : 'Search SoundWave'}
+            </h2>
+
+            {isSearching ? (
+              <div className="flex flex-col items-center justify-center py-20 gap-3 text-[#B3B3B3]">
+                <Loader2 className="w-8 h-8 animate-spin text-[#FFD60A]" />
+                <p className="text-sm font-semibold">Searching legal music sources...</p>
+              </div>
+            ) : searchResults.length > 0 ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                {searchResults.map((track) => (
+                  <TrackCard key={track.id} track={track} queueList={searchResults} />
+                ))}
+              </div>
+            ) : searchQuery.trim() ? (
+              <div className="text-center py-16 text-[#B3B3B3]">
+                <p className="text-base font-semibold">No results found for &ldquo;{searchQuery}&rdquo;</p>
+                <p className="text-xs mt-1">Try another search term or switch source filters.</p>
+              </div>
+            ) : (
+              <div className="text-center py-16 text-[#B3B3B3]">
+                <p className="text-base font-semibold">Type a song, artist, or genre in the top search bar</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* HOME VIEW (Quick-Pick Grid + All 7 Required Shelves) */}
+        {activeTab === 'home' && !searchQuery.trim() && (
+          <>
+            {/* Quick-Pick 2x4 Grid (56px high tiles) */}
+            {quickPickTracks.length > 0 && (
+              <section className="space-y-3">
+                <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
+                  {quickPickTracks.map((track) => (
+                    <QuickPickTile key={track.id} track={track} queueList={quickPickTracks} />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* 1. Trending Now Shelf */}
+            <ShelfSection
+              title="Trending Now"
+              subtitle="Top charts and trending hits across Deezer & Jamendo"
+              tracks={shelves.trending}
+              isLoading={isShelvesLoading}
+              query="top hits billboard chart"
+              provider="all"
+            />
+
+            {/* 2. New Releases Shelf */}
+            <ShelfSection
+              title="New Releases"
+              subtitle="Latest tracks and fresh official audio"
+              tracks={shelves.newReleases}
+              isLoading={isShelvesLoading}
+              query="new music releases 2024"
+              provider="all"
+            />
+
+            {/* 3. Made for You Shelf */}
+            <ShelfSection
+              title="Made for You"
+              subtitle="Personalized selection based on your listening taste"
+              tracks={shelves.madeForYou}
+              isLoading={isShelvesLoading}
+              query="chill vibes indie electronic"
+              provider="all"
+            />
+
+            {/* 4. Creative Commons Picks Shelf */}
+            <ShelfSection
+              title="Creative Commons Picks"
+              subtitle="Royalty-free masterpieces and independent artists via Jamendo"
+              tracks={shelves.creativeCommons}
+              isLoading={isShelvesLoading}
+              query="rock indie acoustic"
+              provider="jamendo"
+            />
+
+            {/* 5. Classic and Public Domain Shelf */}
+            <ShelfSection
+              title="Classic and Public Domain"
+              subtitle="Historical archives, vintage radio broadcasts & live recordings"
+              tracks={shelves.classic}
+              isLoading={isShelvesLoading}
+              query="classic old time radio vintage"
+              provider="archive"
+            />
+
+            {/* 6. Popular on YouTube Shelf */}
+            <ShelfSection
+              title="Popular on YouTube"
+              subtitle="Streamed directly through the official YouTube IFrame Player"
+              tracks={shelves.youtube}
+              isLoading={isShelvesLoading}
+              query="popular hits music video"
+              provider="youtube"
+            />
+
+            {/* 7. Recently Played / Liked Songs Shelf */}
+            {favorites.length > 0 && (
+              <ShelfSection
+                title="Recently Played & Liked"
+                subtitle="Your saved favorites and recent listening history"
+                tracks={favorites}
+                isLoading={false}
+                query="favorites"
+                provider="all"
+              />
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 };

@@ -15,6 +15,12 @@ export interface CustomPlaylist {
   name: string;
   description: string;
   trackIds: string[];
+  coverUrl?: string;
+}
+
+export interface NavigationHistoryEntry {
+  tab: 'home' | 'search' | 'library' | 'favorites' | 'playlist' | 'artist' | 'album' | 'section';
+  meta?: any;
 }
 
 interface SoundWavePlayerStore {
@@ -36,19 +42,42 @@ interface SoundWavePlayerStore {
   playlists: CustomPlaylist[];
   toasts: ToastMessage[];
 
+  // Dynamic Theme Accent
+  dynamicColor: string;
+  hoverGradientColor: string | null;
+  setHoverGradientColor: (color: string | null) => void;
+
   // Lyrics State
   isLyricsOpen: boolean;
 
-  // Navigation State
-  activeTab: 'home' | 'search' | 'library' | 'favorites' | 'playlist';
+  // 3-Panel Layout & Navigation State
+  isLeftRailExpanded: boolean;
+  leftRailWidth: number; // in pixels
+  isRightPanelOpen: boolean;
+  activeTab: 'home' | 'search' | 'library' | 'favorites' | 'playlist' | 'artist' | 'album' | 'section';
   activePlaylistId: string | null;
-  activeProviderFilter: string;
+  selectedSection: { title: string; query: string; provider: string } | null;
+  activeProviderFilter: string; // 'all' | 'jamendo' | 'deezer' | 'youtube' | 'archive'
+  activeCategoryFilter: 'all' | 'music' | 'podcasts';
   searchQuery: string;
 
+  // History State (Back / Forward)
+  history: NavigationHistoryEntry[];
+  historyIndex: number;
+
   // Actions
-  setActiveTab: (tab: 'home' | 'search' | 'library' | 'favorites' | 'playlist') => void;
+  toggleLeftRail: () => void;
+  setLeftRailWidth: (width: number) => void;
+  toggleRightPanel: () => void;
+  setIsRightPanelOpen: (open: boolean) => void;
+  navigate: (entry: NavigationHistoryEntry) => void;
+  goBack: () => void;
+  goForward: () => void;
+  setActiveTab: (tab: 'home' | 'search' | 'library' | 'favorites' | 'playlist' | 'artist' | 'album' | 'section') => void;
   setActivePlaylistId: (id: string | null) => void;
+  setSelectedSection: (sec: { title: string; query: string; provider: string } | null) => void;
   setActiveProviderFilter: (provider: string) => void;
+  setActiveCategoryFilter: (cat: 'all' | 'music' | 'podcasts') => void;
   setSearchQuery: (query: string) => void;
   toggleLyrics: () => void;
   setIsLyricsOpen: (open: boolean) => void;
@@ -66,6 +95,7 @@ interface SoundWavePlayerStore {
   toggleFavorite: (track: UnifiedTrack) => void;
   createPlaylist: (name: string, description?: string) => void;
   addTrackToPlaylist: (playlistId: string, trackId: string) => void;
+  deletePlaylist: (playlistId: string) => void;
   showToast: (message: string, type?: 'info' | 'error' | 'success') => void;
   dismissToast: (id: string) => void;
   setCurrentTime: (time: number) => void;
@@ -99,31 +129,104 @@ export const useSoundWaveStore = create<SoundWavePlayerStore>()(
           name: 'Top 50 Global Releases',
           description: 'Deezer & Jamendo Trending Charts',
           trackIds: [],
+          coverUrl: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=300',
         },
         {
           id: 'pl-open-audio',
           name: 'Open Audio & Classic Radio',
           description: 'Internet Archive Public Domain Tracks',
           trackIds: [],
+          coverUrl: 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=300',
         },
         {
           id: 'pl-cc-lounge',
           name: 'Creative Commons Lounge',
           description: 'Commercial Free Relaxation & Study Beats',
           trackIds: [],
+          coverUrl: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=300',
         },
       ],
       toasts: [],
+      dynamicColor: '#2A2A2A',
+      hoverGradientColor: null,
+      setHoverGradientColor: (color) => set({ hoverGradientColor: color }),
+
       isLyricsOpen: false,
 
+      // 3-panel state
+      isLeftRailExpanded: true,
+      leftRailWidth: 300,
+      isRightPanelOpen: true,
       activeTab: 'home',
       activePlaylistId: null,
+      selectedSection: null,
       activeProviderFilter: 'all',
+      activeCategoryFilter: 'all',
       searchQuery: '',
 
-      setActiveTab: (tab) => set({ activeTab: tab }),
-      setActivePlaylistId: (id) => set({ activePlaylistId: id, activeTab: 'playlist' }),
+      history: [{ tab: 'home' }],
+      historyIndex: 0,
+
+      toggleLeftRail: () => set((state) => ({ isLeftRailExpanded: !state.isLeftRailExpanded })),
+      setLeftRailWidth: (width) => set({ leftRailWidth: Math.max(220, Math.min(480, width)) }),
+      toggleRightPanel: () => set((state) => ({ isRightPanelOpen: !state.isRightPanelOpen })),
+      setIsRightPanelOpen: (open) => set({ isRightPanelOpen: open }),
+
+      navigate: (entry) => {
+        const { history, historyIndex } = get();
+        const nextHistory = history.slice(0, historyIndex + 1);
+        nextHistory.push(entry);
+        set({
+          history: nextHistory,
+          historyIndex: nextHistory.length - 1,
+          activeTab: entry.tab,
+          activePlaylistId: entry.meta?.playlistId || null,
+          selectedSection: entry.meta?.section || null,
+        });
+      },
+
+      goBack: () => {
+        const { history, historyIndex } = get();
+        if (historyIndex > 0) {
+          const nextIndex = historyIndex - 1;
+          const entry = history[nextIndex];
+          set({
+            historyIndex: nextIndex,
+            activeTab: entry.tab,
+            activePlaylistId: entry.meta?.playlistId || null,
+            selectedSection: entry.meta?.section || null,
+          });
+        }
+      },
+
+      goForward: () => {
+        const { history, historyIndex } = get();
+        if (historyIndex < history.length - 1) {
+          const nextIndex = historyIndex + 1;
+          const entry = history[nextIndex];
+          set({
+            historyIndex: nextIndex,
+            activeTab: entry.tab,
+            activePlaylistId: entry.meta?.playlistId || null,
+            selectedSection: entry.meta?.section || null,
+          });
+        }
+      },
+
+      setActiveTab: (tab) => {
+        get().navigate({ tab });
+      },
+
+      setActivePlaylistId: (id) => {
+        get().navigate({ tab: 'playlist', meta: { playlistId: id } });
+      },
+
+      setSelectedSection: (sec) => {
+        get().navigate({ tab: 'section', meta: { section: sec } });
+      },
+
       setActiveProviderFilter: (provider) => set({ activeProviderFilter: provider }),
+      setActiveCategoryFilter: (cat) => set({ activeCategoryFilter: cat }),
       setSearchQuery: (query) => set({ searchQuery: query }),
       toggleLyrics: () => set((state) => ({ isLyricsOpen: !state.isLyricsOpen })),
       setIsLyricsOpen: (open) => set({ isLyricsOpen: open }),
@@ -321,7 +424,7 @@ export const useSoundWaveStore = create<SoundWavePlayerStore>()(
           ? get().favorites.filter((t) => t.id !== track.id)
           : [track, ...get().favorites];
         set({ favorites: updated });
-        get().showToast(exists ? 'Removed from Liked Songs' : 'Saved to Liked Songs (Stored Permanently)', 'success');
+        get().showToast(exists ? 'Removed from Liked Songs' : 'Saved to Liked Songs', 'success');
       },
 
       createPlaylist: (name, description = '') => {
@@ -331,13 +434,14 @@ export const useSoundWaveStore = create<SoundWavePlayerStore>()(
           name: name.trim(),
           description,
           trackIds: [],
+          coverUrl: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=300',
         };
         set((state) => ({
           playlists: [...state.playlists, newPl],
           activePlaylistId: newPl.id,
           activeTab: 'playlist',
         }));
-        get().showToast(`Created playlist "${name}" (Stored Permanently)`, 'success');
+        get().showToast(`Created playlist "${name}"`, 'success');
       },
 
       addTrackToPlaylist: (playlistId, trackId) => {
@@ -351,6 +455,15 @@ export const useSoundWaveStore = create<SoundWavePlayerStore>()(
         get().showToast('Added track to playlist', 'success');
       },
 
+      deletePlaylist: (playlistId) => {
+        set((state) => ({
+          playlists: state.playlists.filter((p) => p.id !== playlistId),
+          activeTab: state.activePlaylistId === playlistId ? 'home' : state.activeTab,
+          activePlaylistId: state.activePlaylistId === playlistId ? null : state.activePlaylistId,
+        }));
+        get().showToast('Playlist deleted', 'info');
+      },
+
       setCurrentTime: (time) => set({ currentTime: time }),
       setDuration: (duration) => set({ duration }),
       setIsPlaying: (playing) => set({ isPlaying: playing }),
@@ -360,13 +473,15 @@ export const useSoundWaveStore = create<SoundWavePlayerStore>()(
     {
       name: 'soundwave-user-library-storage',
       storage: createJSONStorage(() => localStorage),
-      // Persist only user data across page refreshes, avoid storing transient DOM elements
       partialize: (state) => ({
         favorites: state.favorites,
         playlists: state.playlists,
         volume: state.volume,
         shuffle: state.shuffle,
         repeat: state.repeat,
+        isLeftRailExpanded: state.isLeftRailExpanded,
+        leftRailWidth: state.leftRailWidth,
+        isRightPanelOpen: state.isRightPanelOpen,
       }),
     }
   )
