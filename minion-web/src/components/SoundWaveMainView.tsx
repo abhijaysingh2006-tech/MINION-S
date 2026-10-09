@@ -20,6 +20,7 @@ import { UnifiedTrack } from '@/lib/musicProviders/types';
 import { QuickPickTile } from './QuickPickTile';
 import { ShelfSection } from './ShelfSection';
 import { TrackCard } from './TrackCard';
+import { PlaylistDetailView } from './PlaylistDetailView';
 import { extractDominantColor, DEFAULT_GRADIENT_COLOR } from '@/lib/colorExtractor';
 
 export const SoundWaveMainView: React.FC = () => {
@@ -238,6 +239,114 @@ export const SoundWaveMainView: React.FC = () => {
         </div>
 
         {/* 3. CONDITIONAL MAIN VIEW CONTENT */}
+
+        {/* LIKED SONGS VIEW */}
+        {activeTab === 'favorites' && (
+          <PlaylistDetailView
+            type="favorites"
+            title="Liked Songs"
+            description="Auto-saved favorite tracks in your SoundWave collection"
+            ownerName="User"
+            tracks={favorites}
+          />
+        )}
+
+        {/* CUSTOM PLAYLIST VIEW */}
+        {activeTab === 'playlist' && (
+          (() => {
+            const pl = playlists.find((p) => p.id === activePlaylistId) || playlists[0];
+            const plTracks = favorites.filter((f) => pl?.trackIds.includes(f.id));
+            return (
+              <PlaylistDetailView
+                type="playlist"
+                title={pl?.name || 'My Playlist'}
+                description={pl?.description || 'Custom playlist created by you'}
+                ownerName="User"
+                coverUrl={pl?.coverUrl}
+                tracks={plTracks.length > 0 ? plTracks : favorites.slice(0, 10)}
+                isCustomPlaylist={true}
+                playlistId={pl?.id}
+              />
+            );
+          })()
+        )}
+
+        {/* ARTIST DETAIL VIEW */}
+        {activeTab === 'artist' && (
+          <PlaylistDetailView
+            type="artist"
+            title={currentTrack?.artist || 'Featured Artist'}
+            description="Official streaming collection across global providers and SoundWave."
+            ownerName="Verified Artist"
+            coverUrl={currentTrack?.coverArtwork}
+            tracks={
+              shelves.trending.filter((t) => t.artist === currentTrack?.artist).length > 0
+                ? shelves.trending.filter((t) => t.artist === currentTrack?.artist)
+                : shelves.trending.slice(0, 10)
+            }
+          />
+        )}
+
+        {/* ALBUM DETAIL VIEW */}
+        {activeTab === 'album' && (
+          <PlaylistDetailView
+            type="album"
+            title={currentTrack?.album || 'Featured Album'}
+            description={`Studio album by ${currentTrack?.artist || 'SoundWave Artist'}`}
+            ownerName={currentTrack?.artist || 'SoundWave'}
+            coverUrl={currentTrack?.coverArtwork}
+            tracks={shelves.newReleases.slice(0, 12)}
+          />
+        )}
+
+        {/* LIBRARY OVERVIEW VIEW */}
+        {activeTab === 'library' && (
+          <div className="space-y-6">
+            <h1 className="text-3xl font-extrabold text-white tracking-tight">Your Music Library</h1>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+              {/* Liked Songs card */}
+              <div
+                onClick={() => setActiveTab('favorites')}
+                className="group p-4 rounded-xl bg-gradient-to-br from-[#4C1D95] to-[#7C3AED] hover:scale-[1.02] cursor-pointer transition-all shadow-xl col-span-2 flex flex-col justify-between h-[200px]"
+              >
+                <div>
+                  <h3 className="text-2xl font-black text-white">Liked Songs</h3>
+                  <p className="text-xs text-purple-200 mt-1">{favorites.length} saved songs</p>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase tracking-wider text-purple-200">Auto-saved</span>
+                  <div className="w-10 h-10 rounded-full bg-white text-black flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                    <Play className="w-5 h-5 fill-black translate-x-0.5" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Custom Playlists cards */}
+              {playlists.map((pl) => (
+                <div
+                  key={pl.id}
+                  onClick={() => {
+                    useSoundWaveStore.getState().setActivePlaylistId(pl.id);
+                    setActiveTab('playlist');
+                  }}
+                  className="group p-3.5 bg-[#181818] hover:bg-[#282828] rounded-xl cursor-pointer transition-all shadow-lg flex flex-col space-y-3"
+                >
+                  <div className="w-full aspect-square rounded-lg bg-[#202020] overflow-hidden flex items-center justify-center">
+                    {pl.coverUrl ? (
+                      <img src={pl.coverUrl} alt={pl.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <Music2 className="w-10 h-10 text-[#6A6A6A]" />
+                    )}
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-sm text-white truncate">{pl.name}</h4>
+                    <p className="text-xs text-[#B3B3B3] truncate">{pl.description || 'Playlist • SoundWave'}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* SECTION VIEW (When "Show all" was clicked on any shelf) */}
         {activeTab === 'section' && selectedSection && (
