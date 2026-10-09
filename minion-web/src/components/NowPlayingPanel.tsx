@@ -46,6 +46,7 @@ export const NowPlayingPanel: React.FC = () => {
     isLoading: boolean;
   }>({
     lyrics: '',
+    syncedLyrics: [],
     isLoading: false,
   });
   const [isFollowed, setIsFollowed] = useState(false);
@@ -67,12 +68,12 @@ export const NowPlayingPanel: React.FC = () => {
   // Fetch lyrics preview when track changes
   useEffect(() => {
     if (!currentTrack) {
-      setLyricsData({ lyrics: '', isLoading: false });
+      setLyricsData({ lyrics: '', syncedLyrics: [], isLoading: false });
       return;
     }
 
     let isMounted = true;
-    setLyricsData({ lyrics: '', isLoading: true });
+    setLyricsData({ lyrics: '', syncedLyrics: [], isLoading: true });
 
     const fetchLyrics = async () => {
       try {
@@ -85,22 +86,36 @@ export const NowPlayingPanel: React.FC = () => {
           .trim();
 
         const res = await fetch(
-          `/api/lyrics?track=${encodeURIComponent(cleanTitle)}&artist=${encodeURIComponent(
+          `/api/lyrics?title=${encodeURIComponent(cleanTitle)}&artist=${encodeURIComponent(
             cleanArtist
-          )}&duration=${currentTrack.duration}`
+          )}&duration=${currentTrack.duration || 210}`
         );
         const data = await res.json();
 
         if (isMounted) {
-          setLyricsData({
-            lyrics: data.lyrics || '',
-            syncedLyrics: data.syncedLyrics || [],
-            isLoading: false,
-          });
+          if (Array.isArray(data.lyrics)) {
+            setLyricsData({
+              lyrics: '',
+              syncedLyrics: data.lyrics,
+              isLoading: false,
+            });
+          } else if (typeof data.lyrics === 'string') {
+            setLyricsData({
+              lyrics: data.lyrics,
+              syncedLyrics: [],
+              isLoading: false,
+            });
+          } else {
+            setLyricsData({
+              lyrics: '',
+              syncedLyrics: [],
+              isLoading: false,
+            });
+          }
         }
       } catch (err) {
         if (isMounted) {
-          setLyricsData({ lyrics: '', isLoading: false });
+          setLyricsData({ lyrics: '', syncedLyrics: [], isLoading: false });
         }
       }
     };
@@ -109,27 +124,33 @@ export const NowPlayingPanel: React.FC = () => {
     return () => {
       isMounted = false;
     };
-  }, [currentTrack]);
+  }, [currentTrack?.id]);
 
   // Compute active 2-3 lines of lyrics for the preview card
   const getPreviewLyricsLines = () => {
     if (lyricsData.isLoading) {
       return ['Loading lyrics preview...', '', ''];
     }
-    if (lyricsData.syncedLyrics && lyricsData.syncedLyrics.length > 0) {
-      const activeIdx = lyricsData.syncedLyrics.findIndex(
-        (line, idx) =>
-          currentTime >= line.time &&
-          (idx === lyricsData.syncedLyrics!.length - 1 ||
-            currentTime < lyricsData.syncedLyrics![idx + 1].time)
-      );
 
-      const start = Math.max(0, activeIdx === -1 ? 0 : activeIdx);
-      const slice = lyricsData.syncedLyrics.slice(start, start + 3).map((l) => l.text);
+    if (lyricsData.syncedLyrics && lyricsData.syncedLyrics.length > 0) {
+      let activeIdx = 0;
+      for (let i = 0; i < lyricsData.syncedLyrics.length; i++) {
+        if (currentTime >= lyricsData.syncedLyrics[i].time) {
+          activeIdx = i;
+        } else {
+          break;
+        }
+      }
+
+      const slice = lyricsData.syncedLyrics
+        .slice(activeIdx, activeIdx + 3)
+        .map((l) => l.text)
+        .filter((t) => t && t.trim().length > 0);
+
       return slice.length > 0 ? slice : ['...', '...', '...'];
     }
 
-    if (lyricsData.lyrics) {
+    if (typeof lyricsData.lyrics === 'string' && lyricsData.lyrics.trim().length > 0) {
       const lines = lyricsData.lyrics
         .split('\n')
         .map((l) => l.trim())
