@@ -1,0 +1,26 @@
+{
+  "expo": {
+    "name": "Minion",
+    "slug": "minion-music",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "backgroundColor": "#0F0F12"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.minion.app",
+      "infoPlist": {
+        "UIBackgroundModes": ["audio"]
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0F0F12"
+      },
+      "package": "com.minion.app"
+    }
+  }
+}

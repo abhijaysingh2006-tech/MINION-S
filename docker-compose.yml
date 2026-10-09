@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: minion-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: minion
+      POSTGRES_PASSWORD: minion_dev_password
+      POSTGRES_DB: minion_music
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: minion-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  meilisearch:
+    image: getmeili/meilisearch:v1.6
+    container_name: minion-search
+    restart: always
+    environment:
+      MEILI_MASTER_KEY: minion_meili_secret_key_123
+      MEILI_ENV: development
+    ports:
+      - "7700:7700"
+    volumes:
+      - meili_data:/meili_data
+
+  minio:
+    image: minio/minio:latest
+    container_name: minion-s3
+    restart: always
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minion_s3_admin
+      MINIO_ROOT_PASSWORD: minion_s3_password
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+
+volumes:
+  postgres_data:
+  redis_data:
+  meili_data:
+  minio_data:

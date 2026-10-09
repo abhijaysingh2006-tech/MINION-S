@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <linearGradient id="minionYellow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFE033" />
+      <stop offset="100%" stop-color="#FFD60A" />
+    </linearGradient>
+    <linearGradient id="goggleRim" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#7B8391" />
+      <stop offset="50%" stop-color="#4B5361" />
+      <stop offset="100%" stop-color="#313843" />
+    </linearGradient>
+    <linearGradient id="pupilShine" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6F441E" />
+      <stop offset="100%" stop-color="#331A05" />
+    </linearGradient>
+    <filter id="subtleGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="16" flood-color="#000000" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+
+  <!-- Dark container background for icons / favicons -->
+  <rect width="512" height="512" rx="128" fill="#0F0F12"/>
+
+  <!-- Character Head / Body -->
+  <g filter="url(#subtleGlow)">
+    <!-- Pill body -->
+    <rect x="116" y="96" width="280" height="320" rx="140" fill="url(#minionYellow)" />
+    
+    <!-- Denim headphones / headband strap across goggles -->
+    <rect x="76" y="210" width="360" height="36" rx="18" fill="#1A1C23" />
+    <rect x="76" y="213" width="360" height="10" rx="5" fill="#2B5BA8" opacity="0.8" />
+
+    <!-- Over-ear DJ Headphone Cushions on side -->
+    <!-- Left ear cup -->
+    <rect x="68" y="180" width="36" height="96" rx="18" fill="#2B5BA8" />
+    <rect x="72" y="188" width="16" height="80" rx="8" fill="#FFD60A" opacity="0.8" />
+    <!-- Right ear cup -->
+    <rect x="408" y="180" width="36" height="96" rx="18" fill="#2B5BA8" />
+    <rect x="424" y="188" width="16" height="80" rx="8" fill="#FFD60A" opacity="0.8" />
+    <!-- Headphone top arch -->
+    <path d="M 96 190 A 160 140 0 0 1 416 190" fill="none" stroke="#2B5BA8" stroke-width="20" stroke-linecap="round"/>
+
+    <!-- Goggle Eye Outer Rim -->
+    <circle cx="256" cy="228" r="76" fill="url(#goggleRim)" stroke="#20252D" stroke-width="4"/>
+    <!-- Goggle Eye Inner Bevel -->
+    <circle cx="256" cy="228" r="62" fill="#E2E8F0" />
+    <!-- Iris -->
+    <circle cx="256" cy="228" r="32" fill="url(#pupilShine)" />
+    <!-- Pupil -->
+    <circle cx="256" cy="228" r="18" fill="#0F0F12" />
+    <!-- Eye Highlights -->
+    <circle cx="246" cy="218" r="8" fill="#FFFFFF" />
+    <circle cx="266" cy="236" r="3.5" fill="#FFFFFF" opacity="0.9" />
+
+    <!-- Playful confident grin -->
+    <path d="M 206 332 Q 256 368 306 332" fill="none" stroke="#2D2305" stroke-width="12" stroke-linecap="round"/>
+    <!-- Tongue / Cheeky dimple -->
+    <path d="M 236 345 Q 256 362 276 345" fill="#E63946" stroke="#2D2305" stroke-width="2" />
+  </g>
+
+  <!-- Musical Note Accent Floating -->
+  <g fill="#FFD60A" transform="translate(365, 80) scale(0.7) rotate(15)">
+    <circle cx="30" cy="50" r="14" />
+    <rect x="38" y="12" width="6" height="40" rx="3" />
+    <path d="M 44 12 Q 62 16 66 32 L 66 22 Q 60 8 44 12 Z" />
+  </g>
+</svg>

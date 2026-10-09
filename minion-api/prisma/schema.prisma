@@ -1,0 +1,336 @@
+// Prisma Schema for Minion Music Platform
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  USER
+  ARTIST
+  MODERATOR
+  ADMIN
+}
+
+enum SubscriptionTier {
+  FREE
+  PLUS
+}
+
+enum RepeatMode {
+  OFF
+  ALL
+  ONE
+}
+
+enum TakedownStatus {
+  PENDING
+  REVIEWED
+  RESOLVED
+  REJECTED
+}
+
+model User {
+  id                String            @id @default(uuid())
+  email             String            @unique
+  passwordHash      String?
+  googleId          String?           @unique
+  appleId           String?           @unique
+  username          String            @unique
+  displayName       String
+  avatarUrl         String?
+  role              Role              @default(USER)
+  subscriptionTier  SubscriptionTier  @default(FREE)
+  stripeCustomerId  String?
+  isEmailVerified   Boolean           @default(false)
+
+  // Settings
+  audioQuality      String            @default("high") // normal (96k), high (160k), lossless (320k)
+  normalizeVolume   Boolean           @default(true)
+  crossfadeSeconds  Int               @default(2)
+  theme             String            @default("dark") // dark, light, system
+
+  // Relationships
+  artist            Artist?
+  playlists         Playlist[]
+  collaborations    PlaylistCollaborator[]
+  likes             Like[]
+  follows           Follow[]
+  playHistory       PlayHistory[]
+  downloads         Download[]
+  subscriptions     Subscription[]
+  tipsSent          Tip[]
+  reportsFiled      Report[]
+  activeQueue       Queue?
+
+  deletedAt         DateTime?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@index([email])
+  @@index([username])
+}
+
+model Artist {
+  id                String       @id @default(uuid())
+  userId            String?      @unique
+  user              User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  name              String
+  bio               String?
+  avatarUrl         String?
+  bannerUrl         String?
+  verified          Boolean      @default(false)
+  tipAccountEnabled Boolean      @default(true)
+  stripeAccountId   String?
+  monthlyListeners  Int          @default(0)
+
+  tracks            Track[]
+  albums            Album[]
+  follows           Follow[]
+  tipsReceived      Tip[]
+
+  deletedAt         DateTime?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  @@index([name])
+}
+
+model Album {
+  id           String      @id @default(uuid())
+  title        String
+  artistId     String
+  artist       Artist      @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  coverUrl     String
+  releaseDate  DateTime    @default(now())
+  upcCode      String?     @unique
+  tracks       Track[]
+
+  deletedAt    DateTime?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@index([artistId])
+  @@index([title])
+}
+
+model Track {
+  id              String         @id @default(uuid())
+  title           String
+  artistId        String
+  artist          Artist         @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  albumId         String?
+  album           Album?         @relation(fields: [albumId], references: [id], onDelete: SetNull)
+  coverUrl        String
+  audioSourceUrl  String         // Original master file
+  hlsMasterUrl    String         // Transcoded HLS master playlist
+  duration        Int            // in seconds
+  playCount       BigInt         @default(0)
+  explicit        Boolean        @default(false)
+  isPlusOnly      Boolean        @default(false)
+  isrcCode        String?
+  lyricsJson      Json?          // Array of { time: number, text: string }
+  sourceType      String         @default("artist_upload") // jamendo, archive, artist_upload
+  licenseType     String         @default("CC_BY")
+
+  genres          TrackGenre[]
+  playlistTracks  PlaylistTrack[]
+  likes           Like[]
+  playHistory     PlayHistory[]
+  downloads       Download[]
+  queueItems      QueueItem[]
+  reports         Report[]
+
+  deletedAt       DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([artistId])
+  @@index([albumId])
+  @@index([title])
+  @@index([playCount(sort: Desc)])
+}
+
+model Genre {
+  id          String       @id @default(uuid())
+  name        String       @unique
+  slug        String       @unique
+  color       String       @default("#2B5BA8")
+  iconUrl     String?
+  tracks      TrackGenre[]
+}
+
+model TrackGenre {
+  trackId     String
+  genreId     String
+  track       Track        @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  genre       Genre        @relation(fields: [genreId], references: [id], onDelete: Cascade)
+
+  @@id([trackId, genreId])
+  @@index([genreId])
+}
+
+model Playlist {
+  id              String                 @id @default(uuid())
+  title           String
+  description     String?
+  coverUrl        String?
+  ownerId         String
+  owner           User                   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  isPublic        Boolean                @default(true)
+  isCollaborative Boolean                @default(false)
+
+  tracks          PlaylistTrack[]
+  collaborators   PlaylistCollaborator[]
+
+  deletedAt       DateTime?
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+
+  @@index([ownerId])
+  @@index([isPublic])
+}
+
+model PlaylistTrack {
+  id          String       @id @default(uuid())
+  playlistId  String
+  playlist    Playlist     @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  trackId     String
+  track       Track        @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  position    Int
+  addedAt     DateTime     @default(now())
+
+  @@unique([playlistId, position])
+  @@index([playlistId])
+  @@index([trackId])
+}
+
+model PlaylistCollaborator {
+  playlistId  String
+  userId      String
+  playlist    Playlist     @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  addedAt     DateTime     @default(now())
+
+  @@id([playlistId, userId])
+}
+
+model Like {
+  userId      String
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trackId     String
+  track       Track        @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  createdAt   DateTime     @default(now())
+
+  @@id([userId, trackId])
+  @@index([userId])
+}
+
+model Follow {
+  userId      String
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  artistId    String
+  artist      Artist       @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  createdAt   DateTime     @default(now())
+
+  @@id([userId, artistId])
+  @@index([userId])
+  @@index([artistId])
+}
+
+model PlayHistory {
+  id          String       @id @default(uuid())
+  userId      String
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trackId     String
+  track       Track        @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  playedSec   Int          @default(0)
+  completed   Boolean      @default(false)
+  playedAt    DateTime     @default(now())
+
+  @@index([userId, playedAt(sort: Desc)])
+  @@index([trackId])
+}
+
+model Queue {
+  id          String       @id @default(uuid())
+  userId      String       @unique
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  currentIndex Int         @default(0)
+  repeatMode  RepeatMode   @default(OFF)
+  shuffle     Boolean      @default(false)
+  items       QueueItem[]
+  updatedAt   DateTime     @updatedAt
+}
+
+model QueueItem {
+  id          String       @id @default(uuid())
+  queueId     String
+  queue       Queue        @relation(fields: [queueId], references: [id], onDelete: Cascade)
+  trackId     String
+  track       Track        @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  position    Int
+
+  @@unique([queueId, position])
+  @@index([queueId])
+}
+
+model Download {
+  id              String       @id @default(uuid())
+  userId          String
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trackId         String
+  track           Track        @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  deviceId        String
+  downloadedAt    DateTime     @default(now())
+
+  @@unique([userId, trackId, deviceId])
+}
+
+model Subscription {
+  id                String       @id @default(uuid())
+  userId            String
+  user              User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stripeSubId       String       @unique
+  tier              SubscriptionTier @default(PLUS)
+  status            String       // active, past_due, canceled
+  currentPeriodEnd  DateTime
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  @@index([userId])
+}
+
+model Tip {
+  id                String       @id @default(uuid())
+  donorUserId       String
+  donor             User         @relation(fields: [donorUserId], references: [id], onDelete: Cascade)
+  artistId          String
+  artist            Artist       @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  amountCents       Int          // in USD cents
+  message           String?
+  stripePaymentId   String       @unique
+  createdAt         DateTime     @default(now())
+
+  @@index([artistId])
+  @@index([donorUserId])
+}
+
+model Report {
+  id          String         @id @default(uuid())
+  reporterId  String
+  reporter    User           @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+  trackId     String
+  track       Track          @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  reason      String
+  details     String?
+  status      TakedownStatus @default(PENDING)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@index([status])
+  @@index([trackId])
+}
