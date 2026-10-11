@@ -270,8 +270,8 @@ export const useSoundWaveStore = create<SoundWavePlayerStore>()(
 
         const { audioElement, ytPlayer } = get();
 
-        // 1. Direct HTML5 audio (Jamendo full HQ, Archive.org full audio, or initial preview)
-        if (track.playbackType === 'full_audio' || track.playbackType === 'preview_audio') {
+        // 1. Direct HTML5 audio (Jamendo full HQ, Archive.org full audio)
+        if (track.playbackType === 'full_audio') {
           if (ytPlayer && typeof ytPlayer.pauseVideo === 'function') {
             try { ytPlayer.pauseVideo(); } catch (_) {}
           }
@@ -285,51 +285,65 @@ export const useSoundWaveStore = create<SoundWavePlayerStore>()(
                 set({ isPlaying: false, isLoading: false, playbackError: 'Audio stream currently unavailable' });
               });
           }
+        }
 
-          // If track is a 30s preview (Deezer), automatically resolve full-length version via YouTube
-          if (track.playbackType === 'preview_audio' || track.provider === 'deezer') {
-            fetch(
-              `/api/music/resolve-full?title=${encodeURIComponent(track.title)}&artist=${encodeURIComponent(
-                track.artist
-              )}`
-            )
-              .then((res) => res.json())
-              .then((resolved) => {
-                if (resolved?.videoId) {
-                  const state = get();
-                  if (state.currentTrack?.id === track.id) {
-                    const upgradedTrack: UnifiedTrack = {
-                      ...track,
-                      originalId: resolved.videoId,
-                      playbackType: 'youtube_embed',
-                      duration: resolved.duration || track.duration,
-                      license: 'Standard YouTube License (Full Length)',
-                      previewNotice: null,
-                    };
+        // 2. Deezer tracks or Preview tracks: IMMEDIATELY resolve to 100% full-length song
+        if (track.provider === 'deezer' || track.playbackType === 'preview_audio') {
+          set({ isLoading: true });
+          if (audioElement) audioElement.pause();
 
-                    set({
-                      currentTrack: upgradedTrack,
-                      duration: resolved.duration || track.duration,
-                    });
+          fetch(
+            `/api/music/resolve-full?title=${encodeURIComponent(track.title)}&artist=${encodeURIComponent(
+              track.artist
+            )}`
+          )
+            .then((res) => res.json())
+            .then((resolved) => {
+              if (resolved?.videoId) {
+                const state = get();
+                if (state.currentTrack?.id === track.id) {
+                  const upgradedTrack: UnifiedTrack = {
+                    ...track,
+                    originalId: resolved.videoId,
+                    playbackType: 'youtube_embed',
+                    duration: resolved.duration || track.duration,
+                    license: 'Standard YouTube License (100% Full Song)',
+                    previewNotice: null,
+                  };
 
-                    // Seamlessly transition from preview to full audio
-                    if (state.audioElement) {
-                      state.audioElement.pause();
-                    }
-                    if (state.ytPlayer && typeof state.ytPlayer.loadVideoById === 'function') {
-                      try {
-                        const resumeOffset = Math.floor(state.currentTime);
-                        state.ytPlayer.loadVideoById(resolved.videoId, resumeOffset);
-                        state.ytPlayer.playVideo();
-                      } catch (_) {}
-                    }
+                  set({
+                    currentTrack: upgradedTrack,
+                    duration: resolved.duration || track.duration,
+                    isLoading: false,
+                    isPlaying: true,
+                  });
+
+                  if (state.ytPlayer && typeof state.ytPlayer.loadVideoById === 'function') {
+                    try {
+                      state.ytPlayer.loadVideoById(resolved.videoId);
+                      state.ytPlayer.playVideo();
+                    } catch (_) {}
                   }
                 }
-              })
-              .catch((err) => {
-                console.warn('Full audio auto-resolve error:', err);
-              });
-          }
+              } else {
+                // Fallback to preview if resolution had no video
+                if (audioElement && track.playbackUrl) {
+                  audioElement.src = track.playbackUrl;
+                  audioElement.load();
+                  audioElement.play().catch(console.warn);
+                  set({ isLoading: false, isPlaying: true });
+                }
+              }
+            })
+            .catch((err) => {
+              console.warn('Full audio auto-resolve error:', err);
+              if (audioElement && track.playbackUrl) {
+                audioElement.src = track.playbackUrl;
+                audioElement.load();
+                audioElement.play().catch(console.warn);
+                set({ isLoading: false, isPlaying: true });
+              }
+            });
         }
 
         // 2. Permitted YouTube Iframe player (100% Full Length)

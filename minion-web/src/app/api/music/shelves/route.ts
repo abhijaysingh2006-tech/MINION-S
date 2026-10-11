@@ -12,7 +12,7 @@ let shelvesCache: {
   data: Record<string, UnifiedTrack[]>;
 } | null = null;
 
-const CACHE_TTL_MS = 1000 * 60 * 10; // 10 minutes
+const CACHE_TTL_MS = 1000 * 60 * 3; // 3 minutes
 
 export async function GET(request: Request) {
   const now = Date.now();
@@ -21,14 +21,16 @@ export async function GET(request: Request) {
   }
 
   try {
+    // Exclusively load 100% full-length songs: YouTube full tracks, Jamendo full HQ MP3s, Archive full audio
+    // NO Deezer 30-second previews on homepage shelves!
     const [trendingRes, newReleasesRes, madeForYouRes, ccPicksRes, classicRes, ytRes] =
       await Promise.allSettled([
-        musicService.search('top hits billboard chart'),
-        musicService.search('new music releases 2024'),
-        musicService.search('chill vibes indie electronic'),
+        musicService.search('top billboard hits trending songs', 'youtube'),
+        musicService.search('latest hit music releases 2024', 'youtube'),
+        musicService.search('popular hits official audio', 'youtube'),
         musicService.search('rock indie acoustic', 'jamendo'),
-        musicService.search('classic old time radio vintage', 'archive'),
-        musicService.search('popular hits music video', 'youtube'),
+        musicService.search('classic vintage hits', 'archive'),
+        musicService.search('trending music videos', 'youtube'),
       ]);
 
     const getTracks = (res: PromiseSettledResult<any>) =>

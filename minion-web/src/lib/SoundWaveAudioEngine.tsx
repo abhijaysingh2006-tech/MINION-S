@@ -11,6 +11,7 @@ export const SoundWaveAudioEngine: React.FC = () => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const silentAudioRef = useRef<HTMLAudioElement | null>(null);
   const ytContainerRef = useRef<any>(null);
+  const wakeLockRef = useRef<any>(null);
 
   const {
     setAudioElement,
@@ -25,8 +26,6 @@ export const SoundWaveAudioEngine: React.FC = () => {
     togglePlay,
     currentTrack,
     isPlaying,
-    currentTime,
-    duration,
     volume,
   } = useSoundWaveStore();
 
@@ -93,7 +92,7 @@ export const SoundWaveAudioEngine: React.FC = () => {
                       try {
                         event.target.playVideo();
                       } catch (_) {
-                        setIsPlaying(false);
+                        // Keep isPlaying true so the mobile media notification and lock screen stay active!
                       }
                     } else {
                       setIsPlaying(false);
@@ -161,7 +160,23 @@ export const SoundWaveAudioEngine: React.FC = () => {
       }
     }, 400);
 
-    return () => clearInterval(ticker);
+    // Auto-resume when tab visibility is restored
+    const handleVisibility = () => {
+      if (typeof document !== 'undefined' && !document.hidden) {
+        const state = useSoundWaveStore.getState();
+        if (state.isPlaying && state.currentTrack?.playbackType === 'youtube_embed') {
+          try {
+            ytContainerRef.current?.playVideo();
+          } catch (_) {}
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      clearInterval(ticker);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, []);
 
   // 2. Register full MediaSession action handlers (lock screen, smartwatch, notification drawer)
@@ -169,8 +184,36 @@ export const SoundWaveAudioEngine: React.FC = () => {
     if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
 
     const actionMap: [MediaSessionAction, MediaSessionActionHandler][] = [
-      ['play', () => togglePlay()],
-      ['pause', () => togglePlay()],
+      [
+        'play',
+        () => {
+          const { isPlaying: playing, currentTrack: track, ytPlayer: player, audioElement: audio } =
+            useSoundWaveStore.getState();
+          if (!playing) {
+            if (track?.playbackType === 'youtube_embed' && player) {
+              player.playVideo();
+            } else if (audio) {
+              audio.play().catch(console.warn);
+            }
+            useSoundWaveStore.setState({ isPlaying: true });
+          }
+        },
+      ],
+      [
+        'pause',
+        () => {
+          const { isPlaying: playing, currentTrack: track, ytPlayer: player, audioElement: audio } =
+            useSoundWaveStore.getState();
+          if (playing) {
+            if (track?.playbackType === 'youtube_embed' && player) {
+              player.pauseVideo();
+            } else if (audio) {
+              audio.pause();
+            }
+            useSoundWaveStore.setState({ isPlaying: false });
+          }
+        },
+      ],
       ['previoustrack', () => prevTrack()],
       ['nexttrack', () => nextTrack()],
       [
@@ -246,13 +289,12 @@ export const SoundWaveAudioEngine: React.FC = () => {
   }, [isPlaying]);
 
   // 5. Silent Audio Carrier for Background Phone Playback (iOS Safari & Android Chrome)
-  // When YouTube streams are active, keeping a silent HTML5 audio loop running prevents mobile OS
-  // from suspending audio focus or freezing the tab when screen locks.
+  // Maintaining a silent HTML5 audio loop ensures mobile OS keeps the tab's audio session alive
   useEffect(() => {
     const silent = silentAudioRef.current;
     if (!silent) return;
 
-    if (isPlaying && currentTrack?.playbackType === 'youtube_embed') {
+    if (isPlaying) {
       silent.volume = 0.01;
       silent.loop = true;
       silent.play().catch((e) => {
@@ -261,9 +303,40 @@ export const SoundWaveAudioEngine: React.FC = () => {
     } else {
       silent.pause();
     }
-  }, [isPlaying, currentTrack?.playbackType]);
+  }, [isPlaying]);
 
-  // 6. Direct track reactive changes for YouTube
+  // 6. Screen Wake Lock API: prevents phone screen from timing out and sleeping during playback
+  useEffect(() => {
+    const requestWakeLock = async () => {
+      if (typeof navigator !== 'undefined' && 'wakeLock' in navigator && isPlaying) {
+        try {
+          if (!wakeLockRef.current) {
+            wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
+          }
+        } catch (_) {}
+      }
+    };
+
+    if (isPlaying) {
+      requestWakeLock();
+    } else if (wakeLockRef.current) {
+      try {
+        wakeLockRef.current.release();
+        wakeLockRef.current = null;
+      } catch (_) {}
+    }
+
+    return () => {
+      if (wakeLockRef.current) {
+        try {
+          wakeLockRef.current.release();
+          wakeLockRef.current = null;
+        } catch (_) {}
+      }
+    };
+  }, [isPlaying]);
+
+  // 7. Direct track reactive changes for YouTube
   useEffect(() => {
     if (!currentTrack) return;
 
@@ -313,7 +386,7 @@ export const SoundWaveAudioEngine: React.FC = () => {
         crossOrigin="anonymous"
       />
 
-      {/* Background Audio Carrier: maintains mobile OS audio pipeline during YouTube playback & screen lock */}
+      {/* Background Audio Carrier: maintains mobile OS audio pipeline during playback & screen lock */}
       <audio
         ref={silentAudioRef}
         src="/silent.wav"

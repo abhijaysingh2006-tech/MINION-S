@@ -27,39 +27,43 @@ export class UnifiedMusicService {
 
     const tasks: Promise<void>[] = [];
 
+    // 1. YouTube: 100% full-length tracks (Primary provider for commercial hits & full songs)
+    if (!providerFilter || providerFilter === 'youtube') {
+      tasks.push(
+        this.youtube.search(q, 15).then((res) => {
+          youtubeTracks = res;
+          status.youtube = true;
+        }).catch(() => { status.youtube = false; })
+      );
+    }
+
+    // 2. Jamendo: 100% full-length HQ MP3 streams
     if (!providerFilter || providerFilter === 'jamendo') {
       tasks.push(
-        this.jamendo.search(q, 15).then((res) => {
+        this.jamendo.search(q, 10).then((res) => {
           jamendoTracks = res;
           status.jamendo = true;
         }).catch(() => { status.jamendo = false; })
       );
     }
 
-    if (!providerFilter || providerFilter === 'deezer') {
-      tasks.push(
-        this.deezer.search(q, 15).then((res) => {
-          deezerTracks = res;
-          status.deezer = true;
-        }).catch(() => { status.deezer = false; })
-      );
-    }
-
+    // 3. Internet Archive: 100% full-length audio recordings
     if (!providerFilter || providerFilter === 'archive') {
       tasks.push(
-        this.archive.search(q, 8).then((res) => {
+        this.archive.search(q, 6).then((res) => {
           archiveTracks = res;
           status.archive = true;
         }).catch(() => { status.archive = false; })
       );
     }
 
-    if (!providerFilter || providerFilter === 'youtube') {
+    // 4. Deezer: ONLY query when specifically requested via provider filter (prevents 30s preview flooding)
+    if (providerFilter === 'deezer') {
       tasks.push(
-        this.youtube.search(q, 10).then((res) => {
-          youtubeTracks = res;
-          status.youtube = true;
-        }).catch(() => { status.youtube = false; })
+        this.deezer.search(q, 15).then((res) => {
+          deezerTracks = res;
+          status.deezer = true;
+        }).catch(() => { status.deezer = false; })
       );
     }
 
