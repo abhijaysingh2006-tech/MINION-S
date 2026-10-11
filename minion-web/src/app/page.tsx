@@ -94,7 +94,7 @@ export default function Home() {
       <SoundWaveTopBar />
 
       {/* 2. MAIN 3-PANEL FLOATING CARD AREA (Flex min-height 0, 8px outer margins/gaps) */}
-      <div className="flex-1 flex overflow-hidden px-2 pb-2 md:pb-2 gap-2 min-h-0 mb-16 md:mb-0">
+      <div className="flex-1 flex overflow-hidden px-1 sm:px-2 pb-1 sm:pb-2 gap-1 sm:gap-2 min-h-0 mb-28 md:mb-0">
         {/* Left Library Rail */}
         <SoundWaveSidebar />
 

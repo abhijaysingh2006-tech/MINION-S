@@ -84,9 +84,9 @@ export const SoundWaveTopBar: React.FC = () => {
   const canGoForward = historyIndex < history.length - 1;
 
   return (
-    <header className="h-16 px-4 flex items-center justify-between gap-4 select-none z-40 bg-[#000000] text-white">
+    <header className="h-14 md:h-16 px-2 sm:px-4 flex items-center justify-between gap-2 sm:gap-4 select-none z-40 bg-[#000000] text-white">
       {/* 1. LEFT CONTROLS: App Logo, '...' Menu, Back/Forward Arrows */}
-      <div className="flex items-center gap-2 min-w-[200px]">
+      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 md:min-w-[160px]">
         {/* Brand Icon & '...' Dropdown */}
         <div className="relative" ref={menuRef}>
           <button
@@ -136,8 +136,8 @@ export const SoundWaveTopBar: React.FC = () => {
           )}
         </div>
 
-        {/* Back and Forward Navigation History */}
-        <div className="flex items-center gap-1.5 ml-1">
+        {/* Back and Forward Navigation History (Hidden on mobile) */}
+        <div className="hidden sm:flex items-center gap-1.5 ml-1">
           <button
             onClick={goBack}
             disabled={!canGoBack}
@@ -166,16 +166,16 @@ export const SoundWaveTopBar: React.FC = () => {
         </div>
       </div>
 
-      {/* 2. CENTER: Round Home Button + 48px Wide Pill Search Bar */}
-      <div className="flex items-center gap-2 max-w-2xl w-full justify-center">
-        {/* Round Home Icon Button */}
+      {/* 2. CENTER: Round Home Button (Desktop) + 48px Wide Pill Search Bar */}
+      <div className="flex-1 flex items-center gap-2 max-w-2xl justify-center min-w-0">
+        {/* Round Home Icon Button (Hidden on mobile, bottom tab handles it) */}
         <button
           onClick={() => {
             setActiveTab('home');
             setSearchQuery('');
             setLocalSearch('');
           }}
-          className={`w-12 h-12 rounded-full flex items-center justify-center transition-all shrink-0 ${
+          className={`hidden sm:flex w-10 h-10 md:w-12 md:h-12 rounded-full items-center justify-center transition-all shrink-0 ${
             activeTab === 'home' && !searchQuery
               ? 'bg-[#1F1F1F] text-[#FFD60A] scale-105 shadow-md'
               : 'bg-[#1F1F1F] text-[#B3B3B3] hover:text-white hover:scale-105'
@@ -185,8 +185,8 @@ export const SoundWaveTopBar: React.FC = () => {
           <Home className="w-5 h-5" />
         </button>
 
-        {/* Wide Pill Search Input Container (48px high) */}
-        <div className="relative flex-1 flex items-center h-12 rounded-full bg-[#1F1F1F] hover:bg-[#242424] focus-within:bg-[#242424] focus-within:ring-2 focus-within:ring-white border border-[#2B2B2B] transition-all px-4 group shadow-inner">
+        {/* Wide Pill Search Input Container (42px on mobile, 48px on desktop) */}
+        <div className="relative flex-1 flex items-center h-10 md:h-12 rounded-full bg-[#1F1F1F] hover:bg-[#242424] focus-within:bg-[#242424] focus-within:ring-2 focus-within:ring-white border border-[#2B2B2B] transition-all px-3 sm:px-4 group shadow-inner min-w-0">
           <Search className="w-5 h-5 text-[#B3B3B3] group-focus-within:text-white shrink-0 mr-3" />
           
           <input
@@ -230,7 +230,7 @@ export const SoundWaveTopBar: React.FC = () => {
       </div>
 
       {/* 3. RIGHT CONTROLS: Bell, Friends Activity, User Avatar with Status Dot */}
-      <div className="flex items-center justify-end gap-2.5 min-w-[200px]">
+      <div className="flex items-center justify-end gap-1.5 sm:gap-2.5 shrink-0 md:min-w-[160px]">
         {/* Notification Bell */}
         <div className="relative" ref={notifRef}>
           <button

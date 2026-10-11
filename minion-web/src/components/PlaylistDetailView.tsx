@@ -292,12 +292,12 @@ export const PlaylistDetailView: React.FC<PlaylistDetailViewProps> = ({
       {/* 3. 56PX TRACK TABLE (# | Title | Album | Source | Duration) */}
       <div className="px-6 md:px-8 py-4 flex-1">
         {/* Table Column Headers */}
-        <div className="grid grid-cols-12 px-4 py-2 text-xs font-bold text-[#6A6A6A] uppercase tracking-wider border-b border-[#242424]">
+        <div className="grid grid-cols-12 px-2 sm:px-4 py-2 text-xs font-bold text-[#6A6A6A] uppercase tracking-wider border-b border-[#242424]">
           <div className="col-span-1 text-center">#</div>
-          <div className="col-span-6 sm:col-span-5">Title</div>
+          <div className="col-span-8 sm:col-span-5">Title</div>
           <div className="hidden sm:block sm:col-span-3">Album</div>
-          <div className="col-span-3 sm:col-span-2 text-center">Source</div>
-          <div className="col-span-2 sm:col-span-1 text-right flex items-center justify-end">
+          <div className="hidden sm:block sm:col-span-2 text-center">Source</div>
+          <div className="col-span-3 sm:col-span-1 text-right flex items-center justify-end">
             <Clock className="w-4 h-4" />
           </div>
         </div>
@@ -320,7 +320,7 @@ export const PlaylistDetailView: React.FC<PlaylistDetailViewProps> = ({
                 <div
                   key={`${track.id}-${idx}`}
                   onClick={() => playTrack(track, filteredTracks)}
-                  className={`group grid grid-cols-12 items-center h-14 px-4 rounded-lg cursor-pointer transition-colors ${
+                  className={`group grid grid-cols-12 items-center h-14 px-2 sm:px-4 rounded-lg cursor-pointer transition-colors ${
                     isCurrent
                       ? 'bg-[#232323] text-[#FFD60A]'
                       : 'hover:bg-[#1E1E1E] text-white'
@@ -343,7 +343,7 @@ export const PlaylistDetailView: React.FC<PlaylistDetailViewProps> = ({
                   </div>
 
                   {/* Column 2: 40px Artwork + Title & Artist */}
-                  <div className="col-span-6 sm:col-span-5 flex items-center gap-3 min-w-0 pr-2">
+                  <div className="col-span-8 sm:col-span-5 flex items-center gap-2 sm:gap-3 min-w-0 pr-2">
                     <img
                       src={
                         track.coverArtwork ||
@@ -370,12 +370,12 @@ export const PlaylistDetailView: React.FC<PlaylistDetailViewProps> = ({
                   </div>
 
                   {/* Column 4: Provider Source */}
-                  <div className="col-span-3 sm:col-span-2 text-center">
+                  <div className="hidden sm:block sm:col-span-2 text-center">
                     {getSourceBadge(track.provider)}
                   </div>
 
                   {/* Column 5: Heart & Duration */}
-                  <div className="col-span-2 sm:col-span-1 flex items-center justify-end gap-2 text-xs font-mono text-[#B3B3B3]">
+                  <div className="col-span-3 sm:col-span-1 flex items-center justify-end gap-1.5 sm:gap-2 text-xs font-mono text-[#B3B3B3]">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();

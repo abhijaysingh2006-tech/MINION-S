@@ -126,7 +126,7 @@ export const SoundWaveSidebar: React.FC = () => {
   return (
     <aside
       style={{ width: isLeftRailExpanded ? `${leftRailWidth}px` : '72px' }}
-      className="relative flex flex-col bg-[#121212] rounded-xl border border-[#1F1F1F] p-2 select-none shrink-0 transition-all duration-150 h-full overflow-hidden shadow-floating"
+      className="hidden md:flex relative flex-col bg-[#121212] rounded-xl border border-[#1F1F1F] p-2 select-none shrink-0 transition-all duration-150 h-full overflow-hidden shadow-floating"
     >
       {/* 1. TOP HEADER: Library Toggle & '+' Create Playlist */}
       <div className="flex items-center justify-between px-2 py-3 border-b border-[#1F1F1F]/60">

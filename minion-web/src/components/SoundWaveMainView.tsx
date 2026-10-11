@@ -187,7 +187,7 @@ export const SoundWaveMainView: React.FC = () => {
         }}
       />
 
-      <div className="relative z-10 flex flex-col p-6 md:p-8 space-y-8">
+      <div className="relative z-10 flex flex-col p-3 sm:p-6 md:p-8 space-y-6 sm:space-y-8">
         {/* 2. FILTER CHIPS ROWS */}
         <div className="flex flex-col gap-3">
           {/* Row 1: All, Music, Podcasts */}
@@ -426,7 +426,7 @@ export const SoundWaveMainView: React.FC = () => {
             {/* Quick-Pick 2x4 Grid (56px high tiles) */}
             {quickPickTracks.length > 0 && (
               <section className="space-y-3">
-                <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2.5 sm:gap-3">
                   {quickPickTracks.map((track) => (
                     <QuickPickTile key={track.id} track={track} queueList={quickPickTracks} />
                   ))}

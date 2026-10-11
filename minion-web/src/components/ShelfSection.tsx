@@ -112,7 +112,7 @@ export const ShelfSection: React.FC<ShelfSectionProps> = ({
             Array.from({ length: 6 }).map((_, i) => (
               <div
                 key={i}
-                className="w-[184px] shrink-0 p-3.5 bg-[#181818] rounded-xl animate-pulse space-y-3"
+                className="w-[148px] sm:w-[170px] md:w-[184px] shrink-0 p-2.5 sm:p-3.5 bg-[#181818] rounded-xl animate-pulse space-y-3"
               >
                 <div className="w-full aspect-square bg-[#242424] rounded-lg" />
                 <div className="h-4 bg-[#282828] rounded w-3/4" />

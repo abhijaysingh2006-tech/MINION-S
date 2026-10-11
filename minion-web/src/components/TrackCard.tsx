@@ -66,7 +66,7 @@ export const TrackCard: React.FC<TrackCardProps> = ({ track, queueList, isArtist
       onClick={handlePlayClick}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      className="group relative flex flex-col p-3.5 bg-[#181818] hover:bg-[#282828] rounded-xl cursor-pointer transition-all duration-200 w-[184px] shrink-0 select-none shadow-lg"
+      className="group relative flex flex-col p-2.5 sm:p-3.5 bg-[#181818] hover:bg-[#282828] rounded-xl cursor-pointer transition-all duration-200 w-[148px] sm:w-[170px] md:w-[184px] shrink-0 select-none shadow-lg"
     >
       {/* Cover Image Container */}
       <div className="relative w-full aspect-square mb-3.5 overflow-hidden bg-[#121212]">
