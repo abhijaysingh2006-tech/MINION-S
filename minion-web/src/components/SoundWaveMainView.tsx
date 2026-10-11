@@ -14,6 +14,8 @@ import {
   Heart,
   Loader2,
   Layers,
+  Search,
+  X,
 } from 'lucide-react';
 import { useSoundWaveStore } from '@/lib/soundwaveStore';
 import { UnifiedTrack } from '@/lib/musicProviders/types';
@@ -392,14 +394,36 @@ export const SoundWaveMainView: React.FC = () => {
         {/* SEARCH RESULTS VIEW */}
         {(activeTab === 'search' || searchQuery.trim() !== '') && activeTab !== 'section' && (
           <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-white tracking-tight">
-              {searchQuery ? `Results for "${searchQuery}"` : 'Search SoundWave'}
-            </h2>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+                {searchQuery ? `Results for "${searchQuery}"` : 'Search SoundWave'}
+              </h2>
+
+              {/* Inline mobile-friendly search bar */}
+              <div className="relative flex items-center h-11 sm:h-12 rounded-full bg-[#1F1F1F] hover:bg-[#252525] focus-within:bg-[#252525] focus-within:ring-2 focus-within:ring-[#FFD60A] border border-[#333333] px-4 max-w-md w-full transition-all">
+                <Search className="w-4 h-4 sm:w-5 sm:h-5 text-[#FFD60A] mr-2.5 shrink-0" />
+                <input
+                  type="text"
+                  placeholder="Artists, songs, or podcasts..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full bg-transparent text-xs sm:text-sm text-white placeholder-[#888888] focus:outline-none font-medium"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="p-1 hover:bg-[#333333] rounded-full text-[#B3B3B3] hover:text-white"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            </div>
 
             {isSearching ? (
               <div className="flex flex-col items-center justify-center py-20 gap-3 text-[#B3B3B3]">
                 <Loader2 className="w-8 h-8 animate-spin text-[#FFD60A]" />
-                <p className="text-sm font-semibold">Searching legal music sources...</p>
+                <p className="text-sm font-semibold">Searching legal music sources across YouTube, Deezer & Jamendo...</p>
               </div>
             ) : searchResults.length > 0 ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
@@ -410,11 +434,38 @@ export const SoundWaveMainView: React.FC = () => {
             ) : searchQuery.trim() ? (
               <div className="text-center py-16 text-[#B3B3B3]">
                 <p className="text-base font-semibold">No results found for &ldquo;{searchQuery}&rdquo;</p>
-                <p className="text-xs mt-1">Try another search term or switch source filters.</p>
+                <p className="text-xs mt-1">Try another search term or switch source filters above.</p>
               </div>
             ) : (
-              <div className="text-center py-16 text-[#B3B3B3]">
-                <p className="text-base font-semibold">Type a song, artist, or genre in the top search bar</p>
+              <div className="space-y-4 pt-2">
+                <h3 className="text-lg font-bold text-white">Browse all genres & styles</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3.5">
+                  {[
+                    { label: 'Bollywood & Hindi', query: 'bollywood hits', color: 'from-[#EC4899] to-[#BE185D]' },
+                    { label: 'Punjabi Hits', query: 'punjabi hits', color: 'from-[#F59E0B] to-[#D97706]' },
+                    { label: 'Global Pop', query: 'top billboard pop hits', color: 'from-[#10B981] to-[#047857]' },
+                    { label: 'Hip-Hop & Rap', query: 'hip hop hits', color: 'from-[#6366F1] to-[#4338CA]' },
+                    { label: 'Romantic Melodies', query: 'romantic songs', color: 'from-[#EF4444] to-[#B91C1C]' },
+                    { label: 'Dance & EDM', query: 'dance edm club hits', color: 'from-[#8B5CF6] to-[#6D28D9]' },
+                    { label: 'Rock & Metal', query: 'rock classics', color: 'from-[#64748B] to-[#334155]' },
+                    { label: 'Lo-Fi & Chill', query: 'lofi chill beats', color: 'from-[#14B8A6] to-[#0F766E]' },
+                    { label: 'Acoustic & Indie', query: 'indie acoustic songs', color: 'from-[#F97316] to-[#C2410C]' },
+                    { label: 'Devotional & Spiritual', query: 'devotional songs', color: 'from-[#3B82F6] to-[#1D4ED8]' },
+                  ].map((cat) => (
+                    <button
+                      key={cat.label}
+                      onClick={() => setSearchQuery(cat.query)}
+                      className={`h-24 sm:h-28 rounded-xl p-3.5 flex flex-col justify-between text-left font-bold text-white bg-gradient-to-br ${cat.color} hover:scale-[1.03] transition-all shadow-lg overflow-hidden group`}
+                    >
+                      <span className="text-sm sm:text-base leading-snug">{cat.label}</span>
+                      <div className="flex items-center justify-end">
+                        <span className="text-[11px] font-semibold text-white/80 group-hover:text-white flex items-center gap-1">
+                          Explore &rarr;
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
           </div>

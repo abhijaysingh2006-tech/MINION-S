@@ -39,7 +39,7 @@ export const SoundWaveSidebar: React.FC = () => {
   } = useSoundWaveStore();
 
   const [activeFilter, setActiveFilter] = useState<'all' | 'playlists' | 'artists' | 'albums'>('all');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [librarySearchQuery, setLibrarySearchQuery] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState('');
@@ -120,7 +120,7 @@ export const SoundWaveSidebar: React.FC = () => {
   ];
 
   const filteredPlaylists = playlists.filter((p) =>
-    p.name.toLowerCase().includes(searchQuery.toLowerCase())
+    p.name.toLowerCase().includes(librarySearchQuery.toLowerCase())
   );
 
   return (
@@ -179,14 +179,14 @@ export const SoundWaveSidebar: React.FC = () => {
                   type="text"
                   autoFocus
                   placeholder="Search in Library..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  value={librarySearchQuery}
+                  onChange={(e) => setLibrarySearchQuery(e.target.value)}
                   className="w-full bg-transparent text-xs text-white placeholder-[#6A6A6A] focus:outline-none"
                 />
                 <button
                   onClick={() => {
                     setIsSearchOpen(false);
-                    setSearchQuery('');
+                    setLibrarySearchQuery('');
                   }}
                   className="text-[#B3B3B3] hover:text-white"
                 >

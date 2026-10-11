@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import axios from 'axios';
 import YouTubeScraper from 'youtube-sr';
+import { searchYouTubeDirect } from '@/lib/musicProviders/youtubeWebSearch';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,7 +25,7 @@ export async function GET(request: Request) {
     return NextResponse.json(resolvedCache.get(cacheKey));
   }
 
-  // 1. Try Google YouTube Data API v3
+  // 1. Try Google YouTube Data API v3 if API key provided
   if (YOUTUBE_API_KEY && YOUTUBE_API_KEY !== 'your_youtube_api_key_here') {
     try {
       const res = await axios.get('https://www.googleapis.com/youtube/v3/search', {
@@ -53,11 +54,28 @@ export async function GET(request: Request) {
         }
       }
     } catch (err: any) {
-      console.warn('YouTube Data API v3 resolve error:', err.message);
+      console.warn('YouTube Data API v3 resolve note:', err.message);
     }
   }
 
-  // 2. High-reliability fallback using youtube-sr
+  // 2. High-reliability direct web search
+  try {
+    const directVideos = await searchYouTubeDirect(`${q} audio`, 3);
+    if (directVideos && directVideos.length > 0 && directVideos[0]?.id) {
+      const v = directVideos[0];
+      const result = {
+        videoId: v.id,
+        title: v.title || q,
+        duration: v.duration || 210,
+      };
+      resolvedCache.set(cacheKey, result);
+      return NextResponse.json(result);
+    }
+  } catch (err: any) {
+    console.warn('Direct web resolve error:', err.message);
+  }
+
+  // 3. Fallback to youtube-sr if available
   try {
     const videos = await YouTubeScraper.search(`${q} audio`, { limit: 1, type: 'video' });
     if (videos && videos.length > 0 && videos[0]?.id) {
