@@ -27,7 +27,8 @@ export const SoundWaveAudioEngine: React.FC = () => {
 
     // 2. Load YouTube IFrame API script
     if (typeof window !== 'undefined') {
-      if (!window.YT) {
+      const win = window as any;
+      if (!win.YT) {
         const tag = document.createElement('script');
         tag.src = 'https://www.youtube.com/iframe_api';
         const firstScriptTag = document.getElementsByTagName('script')[0];
@@ -35,22 +36,38 @@ export const SoundWaveAudioEngine: React.FC = () => {
       }
 
       const initYt = () => {
-        if (window.YT && window.YT.Player) {
+        if (win.YT && win.YT.Player) {
           try {
-            ytContainerRef.current = new window.YT.Player('soundwave-yt-hidden', {
-              height: '240',
-              width: '320',
-              videoId: '',
+            ytContainerRef.current = new win.YT.Player('soundwave-yt-hidden', {
+              height: '180',
+              width: '240',
+              videoId: 'dQw4w9WgXcQ', // Default initialization ID
               playerVars: {
-                autoplay: 1,
+                autoplay: 0,
                 controls: 0,
+                disablekb: 1,
                 enablejsapi: 1,
-                origin: window.location.origin,
+                fs: 0,
+                playsinline: 1,
+                rel: 0,
               },
               events: {
                 onReady: (event: any) => {
                   setYtPlayer(event.target);
                   event.target.setVolume(Math.round(volume * 100));
+
+                  // If a YouTube track was selected before onReady fired, start it now
+                  const active = useSoundWaveStore.getState().currentTrack;
+                  if (active && active.playbackType === 'youtube_embed') {
+                    try {
+                      event.target.loadVideoById(active.originalId);
+                      event.target.playVideo();
+                      setIsPlaying(true);
+                      setIsLoading(false);
+                    } catch (e) {
+                      console.warn('Deferred YT start error:', e);
+                    }
+                  }
                 },
                 onStateChange: (event: any) => {
                   if (event.data === 1) { // Playing
@@ -65,9 +82,8 @@ export const SoundWaveAudioEngine: React.FC = () => {
                   }
                 },
                 onError: (err: any) => {
-                  console.warn('YouTube embedded player error:', err);
+                  console.warn('YouTube embedded player error code:', err?.data);
                   setIsLoading(false);
-                  showToast('YouTube video playback restriction or error', 'error');
                 },
               },
             });
@@ -77,10 +93,10 @@ export const SoundWaveAudioEngine: React.FC = () => {
         }
       };
 
-      if (window.YT && window.YT.Player) {
+      if (win.YT && win.YT.Player) {
         initYt();
       } else {
-        window.onYouTubeIframeAPIReady = initYt;
+        win.onYouTubeIframeAPIReady = initYt;
       }
     }
 
@@ -101,10 +117,31 @@ export const SoundWaveAudioEngine: React.FC = () => {
       } else if (audioRef.current) {
         setCurrentTime(audioRef.current.currentTime);
       }
-    }, 400);
+    }, 350);
 
     return () => clearInterval(ticker);
   }, []);
+
+  // React directly to track changes for YouTube streams
+  useEffect(() => {
+    if (!currentTrack) return;
+
+    if (currentTrack.playbackType === 'youtube_embed') {
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+      if (ytContainerRef.current && typeof ytContainerRef.current.loadVideoById === 'function') {
+        try {
+          ytContainerRef.current.loadVideoById(currentTrack.originalId);
+          ytContainerRef.current.playVideo();
+          setIsPlaying(true);
+          setIsLoading(false);
+        } catch (err) {
+          console.warn('Reactive YT load error:', err);
+        }
+      }
+    }
+  }, [currentTrack?.id, currentTrack?.playbackType]);
 
   const handleTimeUpdate = () => {
     if (audioRef.current) {
@@ -121,11 +158,11 @@ export const SoundWaveAudioEngine: React.FC = () => {
 
   const handleError = () => {
     setIsLoading(false);
-    showToast('Failed to load audio stream from provider', 'error');
   };
 
   return (
     <>
+      {/* HTML5 audio engine for Jamendo and Archive direct MP3s */}
       <audio
         ref={audioRef}
         onTimeUpdate={handleTimeUpdate}
@@ -134,16 +171,19 @@ export const SoundWaveAudioEngine: React.FC = () => {
         onEnded={nextTrack}
         crossOrigin="anonymous"
       />
+
+      {/* YouTube IFrame Player: kept on-screen at bottom-right with near-zero opacity so browser does NOT throttle or pause */}
       <div
         style={{
           position: 'fixed',
-          left: -9999,
-          top: -9999,
-          width: 320,
-          height: 240,
-          opacity: 0.01,
+          bottom: 0,
+          right: 0,
+          width: 200,
+          height: 120,
+          opacity: 0.001,
           pointerEvents: 'none',
-          zIndex: -999,
+          zIndex: 0,
+          overflow: 'hidden',
         }}
       >
         <div id="soundwave-yt-hidden" />

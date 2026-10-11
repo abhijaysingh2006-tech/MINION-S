@@ -65,11 +65,11 @@ export class UnifiedMusicService {
 
     await Promise.all(tasks);
 
-    // Interleave or combine results with Deezer & Jamendo full audio prioritization
+    // Prioritize 100% full-length audio tracks (YouTube full audio & Jamendo full HQ MP3)
     const combinedTracks = [
-      ...deezerTracks,
-      ...jamendoTracks,
       ...youtubeTracks,
+      ...jamendoTracks,
+      ...deezerTracks,
       ...archiveTracks,
     ];
 

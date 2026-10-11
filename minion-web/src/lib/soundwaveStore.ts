@@ -270,7 +270,7 @@ export const useSoundWaveStore = create<SoundWavePlayerStore>()(
 
         const { audioElement, ytPlayer } = get();
 
-        // 1. Direct HTML5 audio (Jamendo, Deezer preview, Archive.org)
+        // 1. Direct HTML5 audio (Jamendo full HQ, Archive.org full audio, or initial preview)
         if (track.playbackType === 'full_audio' || track.playbackType === 'preview_audio') {
           if (ytPlayer && typeof ytPlayer.pauseVideo === 'function') {
             try { ytPlayer.pauseVideo(); } catch (_) {}
@@ -283,15 +283,56 @@ export const useSoundWaveStore = create<SoundWavePlayerStore>()(
               .catch((err) => {
                 console.warn('Playback error:', err);
                 set({ isPlaying: false, isLoading: false, playbackError: 'Audio stream currently unavailable' });
-                get().showToast('Playback stream error from provider', 'error');
               });
-          } else {
-            set({ isPlaying: false, isLoading: false, playbackError: 'No direct audio URL provided' });
-            get().showToast('Audio URL not available for this track', 'error');
+          }
+
+          // If track is a 30s preview (Deezer), automatically resolve full-length version via YouTube
+          if (track.playbackType === 'preview_audio' || track.provider === 'deezer') {
+            fetch(
+              `/api/music/resolve-full?title=${encodeURIComponent(track.title)}&artist=${encodeURIComponent(
+                track.artist
+              )}`
+            )
+              .then((res) => res.json())
+              .then((resolved) => {
+                if (resolved?.videoId) {
+                  const state = get();
+                  if (state.currentTrack?.id === track.id) {
+                    const upgradedTrack: UnifiedTrack = {
+                      ...track,
+                      originalId: resolved.videoId,
+                      playbackType: 'youtube_embed',
+                      duration: resolved.duration || track.duration,
+                      license: 'Standard YouTube License (Full Length)',
+                      previewNotice: null,
+                    };
+
+                    set({
+                      currentTrack: upgradedTrack,
+                      duration: resolved.duration || track.duration,
+                    });
+
+                    // Seamlessly transition from preview to full audio
+                    if (state.audioElement) {
+                      state.audioElement.pause();
+                    }
+                    if (state.ytPlayer && typeof state.ytPlayer.loadVideoById === 'function') {
+                      try {
+                        const resumeOffset = Math.floor(state.currentTime);
+                        state.ytPlayer.loadVideoById(resolved.videoId, resumeOffset);
+                        state.ytPlayer.playVideo();
+                      } catch (_) {}
+                    }
+                  }
+                }
+              })
+              .catch((err) => {
+                console.warn('Full audio auto-resolve error:', err);
+              });
           }
         }
 
-        // 2. Permitted YouTube Iframe player
+        // 2. Permitted YouTube Iframe player (100% Full Length)
         if (track.playbackType === 'youtube_embed') {
           if (audioElement) {
             audioElement.pause();
@@ -303,7 +344,6 @@ export const useSoundWaveStore = create<SoundWavePlayerStore>()(
               set({ isPlaying: true, isLoading: false });
             } catch (err) {
               console.warn('YT play error:', err);
-              get().showToast('YouTube player error', 'error');
             }
           }
         }
