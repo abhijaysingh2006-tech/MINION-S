@@ -18,11 +18,14 @@ jobs:
         with:
           node-version: 20
           cache: 'npm'
+          cache-dependency-path: 'minion-web/package-lock.json'
 
       - name: Install Dependencies
         run: |
-          npm --prefix minion-api ci || echo "Backend packages ready"
-          npm --prefix minion-web ci || echo "Web packages ready"
+          npm --prefix minion-web install
+          if [ -d "minion-api" ] && [ -f "minion-api/package.json" ]; then
+            npm --prefix minion-api install || echo "Backend packages skipped"
+          fi
 
       - name: Verify Web TypeScript
         run: |
@@ -30,7 +33,9 @@ jobs:
 
       - name: Validate Database Schema
         run: |
-          cd minion-api && npx prisma validate || true
+          if [ -d "minion-api" ] && [ -f "minion-api/package.json" ]; then
+            cd minion-api && npx prisma validate || true
+          fi
 
   build-and-test:
     needs: lint-and-typecheck
@@ -39,6 +44,17 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: 'minion-web/package-lock.json'
+
+      - name: Install Web Dependencies
+        run: |
+          npm --prefix minion-web install
+
       - name: Build Web Application
         run: |
-          cd minion-web && npm run build || true
+          npm --prefix minion-web run build
