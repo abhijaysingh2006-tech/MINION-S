@@ -3,7 +3,7 @@ import YouTubeScraper from 'youtube-sr';
 import { UnifiedTrack } from './types';
 
 export class YouTubeAdapter {
-  private apiKey = process.env.YOUTUBE_API_KEY || 'AIzaSyDnkWnRx11OX1JTdCMHMWNFGsmXbLj3iv0';
+  private apiKey = process.env.YOUTUBE_API_KEY || '';
 
   async search(query: string, limit = 12): Promise<UnifiedTrack[]> {
     // If a YouTube Data API v3 key is provided, use the official Google endpoint

@@ -4,8 +4,7 @@ import YouTubeScraper from 'youtube-sr';
 
 export const dynamic = 'force-dynamic';
 
-const YOUTUBE_API_KEY =
-  process.env.YOUTUBE_API_KEY || 'AIzaSyDnkWnRx11OX1JTdCMHMWNFGsmXbLj3iv0';
+const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY || '';
 
 // In-memory cache for resolved songs to avoid redundant API queries
 const resolvedCache = new Map<string, { videoId: string; title: string; duration: number }>();

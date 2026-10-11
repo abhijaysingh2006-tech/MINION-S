@@ -382,7 +382,13 @@ export const useSoundWaveStore = create<SoundWavePlayerStore>()(
           else audioElement.play().catch(console.warn);
         }
 
-        set({ isPlaying: !isPlaying });
+        const nextState = !isPlaying;
+        set({ isPlaying: nextState });
+        if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
+          try {
+            navigator.mediaSession.playbackState = nextState ? 'playing' : 'paused';
+          } catch (_) {}
+        }
       },
 
       seek: (seconds) => {
